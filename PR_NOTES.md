@@ -17,3 +17,7 @@ This branch now contains a clean standalone React/Vite homepage rather than the 
 - Solana RPC and transaction code
 - Buffer polyfills
 - Production deployment configuration
+
+## Preview deployment
+
+GitHub Pages was enabled on August 3, 2026. This update triggers the branch preview workflow.
