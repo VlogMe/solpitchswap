@@ -15,7 +15,7 @@ const tradable = new Set<ProjectStatus>(["graduated", "bonding", "launched"]);
 type Filter = "all" | ProjectStatus;
 
 function Logo() {
-  return <img className="official-logo" src="/solpitch-logo.svg" alt="SolPitch" />;
+  return <img className="official-logo" src={`${import.meta.env.BASE_URL}solpitch-logo.svg`} alt="SolPitch" />;
 }
 
 function ProjectAvatar({ project, small = false }: { project: Project; small?: boolean }) {
