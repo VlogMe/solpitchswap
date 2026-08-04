@@ -21,3 +21,21 @@ export type Project = {
     discord?: string;
   };
 };
+
+export type SubmissionStatus = "pending" | "approved" | "rejected";
+
+export type CoinSubmission = {
+  id: string;
+  submittedAt: string;
+  status: SubmissionStatus;
+  name: string;
+  symbol: string;
+  contractAddress: string;
+  pitch: string;
+  description: string;
+  website: string;
+  x: string;
+  telegram: string;
+  graduationProof: string;
+  reviewerNote?: string;
+};
