@@ -1,6 +1,6 @@
 import type { CoinSubmission, Project, ProjectStatus } from "./types";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://agent-fresh-solpitch-listings-solpitchswap.kevingpersson.workers.dev";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://solpitchswap.kevingpersson.workers.dev";
 type ApiError = { error?: string };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
