@@ -1,10 +1,13 @@
-export type ProjectBadge = "Graduated" | "Verified" | "Featured" | "Trending";
+export type ProjectBadge = "Graduated" | "Verified" | "Featured" | "Trending" | "Bonding" | "Launched" | "Presale" | "Upcoming";
+
+export type ProjectStatus = "graduated" | "bonding" | "launched" | "presale" | "upcoming";
 
 export type Project = {
   slug: string;
   name: string;
   symbol: string;
   contractAddress: string;
+  projectStatus: ProjectStatus;
   pitch: string;
   description: string;
   badges: ProjectBadge[];
@@ -23,6 +26,7 @@ export type CoinSubmission = {
   id: string;
   submittedAt: string;
   status: SubmissionStatus;
+  projectStatus: ProjectStatus;
   name: string;
   symbol: string;
   contractAddress: string;
@@ -31,7 +35,7 @@ export type CoinSubmission = {
   website: string;
   x: string;
   telegram: string;
-  graduationProof: string;
+  statusProof: string;
   submitterEmail: string;
   reviewerNote?: string;
 };
