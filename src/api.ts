@@ -1,6 +1,6 @@
-import type { CoinSubmission, ProjectStatus } from "./types";
+import type { CoinSubmission, Project, ProjectStatus } from "./types";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://agent-fresh-solpitch-listings-solpitchswap.kevingpersson.workers.dev";
 type ApiError = { error?: string };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -11,35 +11,40 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export type SubmissionPayload = {
-  name: string;
-  symbol: string;
-  contractAddress: string;
-  projectStatus: ProjectStatus;
-  pitch: string;
-  description: string;
-  website?: string;
-  xUrl?: string;
-  telegramUrl?: string;
-  statusProofUrl: string;
-  submitterEmail: string;
-  turnstileToken?: string;
+  name: string; symbol: string; contractAddress: string; projectStatus: ProjectStatus;
+  pitch: string; description: string; website?: string; xUrl?: string; telegramUrl?: string;
+  logoUrl?: string; statusProofUrl: string; submitterEmail: string; turnstileToken?: string;
 };
 
+export async function getPublishedProjects() {
+  const result = await request<{ projects: Record<string, unknown>[] }>("/api/projects");
+  return result.projects.map(mapProjectRow);
+}
 export async function submitCoin(payload: SubmissionPayload) {
   return request<{ id: string; status: "pending"; projectStatus: ProjectStatus }>("/api/submissions", { method: "POST", body: JSON.stringify(payload) });
 }
 export async function adminLogin(password: string) { return request<{ ok: true }>("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) }); }
 export async function adminLogout() { return request<{ ok: true }>("/api/admin/logout", { method: "POST", body: "{}" }); }
 export async function getAdminSession() { return request<{ authenticated: boolean }>("/api/admin/session"); }
-export async function getPendingSubmissions(projectStatus?: ProjectStatus) {
-  const query = projectStatus ? `?status=pending&projectStatus=${encodeURIComponent(projectStatus)}` : "?status=pending";
-  const result = await request<{ submissions: Record<string, unknown>[] }>(`/api/admin/submissions${query}`);
+export async function getPendingSubmissions() {
+  const result = await request<{ submissions: Record<string, unknown>[] }>("/api/admin/submissions?status=pending");
   return result.submissions.map(mapSubmissionRow);
 }
-export async function reviewSubmission(id: string, status: "approved" | "rejected", reviewerNotes: string) {
-  return request<{ ok: true }>(`/api/admin/submissions/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status, reviewerNotes }) });
+export async function reviewSubmission(id: string, status: "approved" | "rejected", reviewerNotes: string, options: { addedToSwap?: boolean; promoted?: boolean; logoUrl?: string } = {}) {
+  return request<{ ok: true }>(`/api/admin/submissions/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status, reviewerNotes, ...options }) });
 }
 
+function mapProjectRow(row: Record<string, unknown>): Project {
+  const promoted = Number(row.promoted ?? 0) === 1;
+  return {
+    slug: String(row.slug), name: String(row.name), symbol: String(row.symbol), contractAddress: String(row.contract_address),
+    projectStatus: String(row.project_status) as ProjectStatus, claimStatus: String(row.claim_status ?? "unclaimed") as Project["claimStatus"],
+    pitch: String(row.pitch), description: String(row.description), badges: promoted ? ["Community Listed", "Featured"] : ["Community Listed"],
+    logoURI: String(row.logo_url ?? "") || undefined, marketCap: "Live data soon", liquidity: "Live data soon", volume24h: "Live data soon", holders: "Live data soon",
+    votes: Number(row.votes ?? 0), listedLabel: new Date(String(row.published_at)).toLocaleDateString(),
+    links: { website: String(row.website ?? "") || undefined, x: String(row.x_url ?? "") || undefined, telegram: String(row.telegram_url ?? "") || undefined },
+  };
+}
 function mapSubmissionRow(row: Record<string, unknown>): CoinSubmission {
   return {
     id: String(row.id), name: String(row.name), symbol: String(row.symbol), contractAddress: String(row.contract_address),
