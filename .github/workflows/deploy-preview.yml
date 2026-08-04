@@ -17,14 +17,15 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout preview branch
+      - name: Checkout fresh listings branch
         uses: actions/checkout@v4
+        with:
+          ref: agent/fresh-solpitch-listings
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
         run: npm install
