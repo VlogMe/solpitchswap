@@ -9,6 +9,7 @@
 - Admin approve and reject controls with reviewer notes
 - Search, project detail view, rankings and promoted placements
 - Responsive workflow styling
+- Production preview deployment trigger repaired on 2026-08-04
 
 ## Production requirement
 
