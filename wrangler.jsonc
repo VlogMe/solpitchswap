@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "solpitch-listings-api",
+  "name": "solpitchswap",
   "main": "worker/src/index.ts",
   "compatibility_date": "2026-07-24",
   "d1_databases": [
