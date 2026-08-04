@@ -1,6 +1,6 @@
-export type ProjectBadge = "Graduated" | "Verified" | "Featured" | "Trending" | "Bonding" | "Launched" | "Presale" | "Upcoming";
-
+export type ProjectBadge = "Verified" | "Featured" | "Trending" | "Community Listed" | "Owner Verified";
 export type ProjectStatus = "graduated" | "bonding" | "launched" | "presale" | "upcoming";
+export type ClaimStatus = "unclaimed" | "pending" | "verified" | "disputed";
 
 export type Project = {
   slug: string;
@@ -8,6 +8,7 @@ export type Project = {
   symbol: string;
   contractAddress: string;
   projectStatus: ProjectStatus;
+  claimStatus: ClaimStatus;
   pitch: string;
   description: string;
   badges: ProjectBadge[];
