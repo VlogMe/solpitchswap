@@ -4,6 +4,7 @@ import type { Project, ProjectStatus } from "./types";
 import "./production.css";
 
 const SWAP_URL = "https://solpitch.net";
+const PREVIEW_DEMO_VOTES = true; // Set false before public launch to start every project at zero.
 const statusName: Record<ProjectStatus, string> = { graduated: "Graduated", bonding: "Bonding", launched: "Live", presale: "Presale", upcoming: "Upcoming" };
 const tradable = new Set<ProjectStatus>(["graduated", "bonding", "launched"]);
 type Filter = "all" | ProjectStatus;
@@ -22,22 +23,14 @@ function OwnershipBadge({ project }: { project: Project }) {
   return <span className={`claim claim-${project.claimStatus}`}>{labels[project.claimStatus]}</span>;
 }
 
-function ProjectCard({ project, votes, favorite, onVote, onFavorite, onOpen, onClaim }: {
-  project: Project; votes: number; favorite: boolean; onVote: () => void; onFavorite: () => void; onOpen: () => void; onClaim: () => void;
+function ProjectCard({ project, votes, favorite, topTen, onVote, onFavorite, onOpen, onClaim }: {
+  project: Project; votes: number; favorite: boolean; topTen: boolean; onVote: () => void; onFavorite: () => void; onOpen: () => void; onClaim: () => void;
 }) {
   const canTrade = tradable.has(project.projectStatus);
   return <article className="listing-card">
     <div className="listing-top">
       <ProjectAvatar project={project} />
-      <div className="coin-title">
-        <div><h3>{project.name}</h3><span>${project.symbol}</span></div>
-        <div className="tag-row">
-          <span className={`status status-${project.projectStatus}`}>{statusName[project.projectStatus]}</span>
-          <OwnershipBadge project={project} />
-          {project.badges.includes("Founding Project") && <span className="founding">Founding project</span>}
-          {project.badges.includes("Featured") && <span className="featured">Featured</span>}
-        </div>
-      </div>
+      <div className="coin-title"><div><h3>{project.name}</h3><span>${project.symbol}</span></div><div className="tag-row"><span className={`status status-${project.projectStatus}`}>{statusName[project.projectStatus]}</span><OwnershipBadge project={project} />{topTen && <span className="top-ten">Top 10</span>}{project.badges.includes("Founding Project") && <span className="founding">Founding project</span>}{project.badges.includes("Featured") && <span className="featured">Featured</span>}</div></div>
       <button className={`favorite ${favorite ? "selected" : ""}`} onClick={onFavorite}>{favorite ? "♥" : "♡"}</button>
       <button className="vote" onClick={onVote}>▲ {votes}</button>
     </div>
@@ -56,15 +49,22 @@ function ClaimDialog({ project, onClose }: { project: Project; onClose: () => vo
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="claim-modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">CLAIM OFFICIAL OWNERSHIP</span><h2>Verify ownership of {project.name}</h2><p>Connect a recognized project wallet and sign a one-time message. Signing is free and cannot move funds.</p><div className="claim-steps"><div><b>1</b><span><strong>Connect Phantom</strong><small>Use the creator or recognized project wallet.</small></span></div><div><b>2</b><span><strong>Sign a message</strong><small>No transaction or gas fee.</small></span></div><div><b>3</b><span><strong>Ownership review</strong><small>SolPitch compares public creator records.</small></span></div></div><button className="primary wide" disabled>Phantom verification coming next</button></section></div>;
 }
 
+function RankedProject({ project, rank, votes, onOpen }: { project: Project; rank: number; votes: number; onOpen: () => void }) {
+  const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : String(rank);
+  const movement = ["▲ 2", "—", "▲ 1", "▼ 1", "▲ 3"][rank - 1] ?? "—";
+  return <button className="rank leaderboard-rank" onClick={onOpen}><b>{medal}</b><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>${project.symbol} <i>{movement}</i></small></span><em>▲ {votes}</em></button>;
+}
+
 export default function ProductionHome() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<Project | null>(null);
   const [claiming, setClaiming] = useState<Project | null>(null);
-  const [votes, setVotes] = useState<Record<string, number>>(() => Object.fromEntries(projects.map(p => [p.slug, p.votes])));
+  const [votes, setVotes] = useState<Record<string, number>>(() => Object.fromEntries(projects.map(p => [p.slug, PREVIEW_DEMO_VOTES ? p.votes : 0])));
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const filtered = useMemo(() => projects.filter(p => (filter === "all" || p.projectStatus === filter) && `${p.name} ${p.symbol} ${p.contractAddress}`.toLowerCase().includes(query.toLowerCase())), [query, filter]);
-  const vote = (project: Project) => setVotes(v => ({ ...v, [project.slug]: (v[project.slug] ?? project.votes) + 1 }));
+  const ranked = useMemo(() => [...projects].sort((a,b)=>(votes[b.slug]??0)-(votes[a.slug]??0)), [votes]);
+  const vote = (project: Project) => setVotes(v => ({ ...v, [project.slug]: (v[project.slug] ?? 0) + 1 }));
   const favorite = (project: Project) => setFavorites(current => { const next = new Set(current); next.has(project.slug) ? next.delete(project.slug) : next.add(project.slug); return next; });
   const verifiedCount = projects.filter(p => p.claimStatus === "verified").length;
   const communityCount = projects.length - verifiedCount;
@@ -73,13 +73,18 @@ export default function ProductionHome() {
     <header className="production-header"><button className="logo-button" onClick={()=>setSelected(null)}><Logo /></button><div className="global-search"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search projects, tickers or contract addresses" /></div><div className="header-actions"><button>Advertise</button><button className="primary">Submit project</button></div></header>
     <div className="production-grid">
       <aside className="nav-rail"><nav>{["Home","Featured","Trending","New listings","Most voted"].map((item,index)=><button className={index===0&&!selected?"active":""} onClick={()=>setSelected(null)} key={item}><span>{["⌂","★","↗","＋","▲"][index]}</span>{item}</button>)}</nav><p>PROJECT STAGES</p><nav>{(["graduated","bonding","launched","presale","upcoming"] as ProjectStatus[]).map(status=><button className={filter===status?"active":""} onClick={()=>{setFilter(status);setSelected(null)}} key={status}><i className={`stage-dot dot-${status}`}/>{statusName[status]}</button>)}</nav><p>FOR PROJECTS</p><nav><button onClick={()=>setClaiming(projects.find(p=>p.claimStatus==="unclaimed")??null)}>Claim a project</button><button>Submit project</button><button>Promotion options</button></nav></aside>
-      {selected ? <ProjectPage project={selected} votes={votes[selected.slug]??selected.votes} onBack={()=>setSelected(null)} onVote={()=>vote(selected)} onClaim={()=>setClaiming(selected)} /> : <main className="project-feed">
+      {selected ? <ProjectPage project={selected} votes={votes[selected.slug]??0} onBack={()=>setSelected(null)} onVote={()=>vote(selected)} onClaim={()=>setClaiming(selected)} /> : <main className="project-feed">
         <section className="directory-summary"><div><small>Listed projects</small><strong>{projects.length}</strong></div><div><small>Owner verified</small><strong>{verifiedCount}</strong></div><div><small>Community listed</small><strong>{communityCount}</strong></div><div><small>Network</small><strong>Solana</strong></div></section>
-        <section className="trending-strip"><span>🔥 Trending</span>{projects.slice(0,5).map((project,index)=><button key={project.slug} onClick={()=>setSelected(project)}><b>${project.symbol}</b><em>{index===0?"NEW":`▲ ${index+3}%`}</em></button>)}</section>
+        <section className="trending-strip"><span>🔥 Trending</span>{ranked.slice(0,5).map((project,index)=><button key={project.slug} onClick={()=>setSelected(project)}><b>${project.symbol}</b><em>{index===0?"#1 THIS WEEK":`▲ ${index+3}%`}</em></button>)}</section>
         <section className="feed-toolbar" id="directory"><div><span className="eyebrow">PROJECT DIRECTORY</span><h2>Fresh listings <small>{filtered.length} projects</small></h2></div><div className="filter-row"><button className={filter==="all"?"active":""} onClick={()=>setFilter("all")}>All</button>{(["graduated","bonding","launched","presale","upcoming"] as ProjectStatus[]).map(status=><button className={filter===status?"active":""} onClick={()=>setFilter(status)} key={status}>{statusName[status]}</button>)}</div></section>
-        {filtered.map(project=><ProjectCard key={project.slug} project={project} votes={votes[project.slug]??project.votes} favorite={favorites.has(project.slug)} onVote={()=>vote(project)} onFavorite={()=>favorite(project)} onOpen={()=>setSelected(project)} onClaim={()=>setClaiming(project)} />)}
+        {filtered.map(project=><ProjectCard key={project.slug} project={project} votes={votes[project.slug]??0} favorite={favorites.has(project.slug)} topTen={ranked.slice(0,10).some(p=>p.slug===project.slug)} onVote={()=>vote(project)} onFavorite={()=>favorite(project)} onOpen={()=>setSelected(project)} onClaim={()=>setClaiming(project)} />)}
       </main>}
-      <aside className="utility-rail"><section className="swap-widget swap-placeholder"><div className="widget-title"><div><span className="eyebrow">SOLPITCH</span><h2>Swap</h2></div><span className="live-pill">COMING SOON</span></div><div className="swap-field"><small>You pay</small><div><strong>0.00</strong><button>◎ SOL</button></div></div><div className="switch">↓</div><div className="swap-field"><small>You receive</small><div><strong>0.00</strong><button>Select token</button></div></div><button className="placeholder-button" disabled>Swap integration will appear here</button><p>The live swap remains at solpitch.net until we embed it safely.</p></section><section className="side-widget"><div className="widget-title"><h3>Promoted</h3><button>Advertise</button></div><button className="promoted-project" onClick={()=>setSelected(projects[0])}><ProjectAvatar project={projects[0]} small/><span><strong>$SPSP</strong><small>Founding project · Paid placement disclosed</small></span></button></section><section className="side-widget"><div className="widget-title"><h3>Most voted</h3><span>Community</span></div>{projects.slice().sort((a,b)=>(votes[b.slug]??b.votes)-(votes[a.slug]??a.votes)).map((project,index)=><button className="rank" onClick={()=>setSelected(project)} key={project.slug}><b>{index+1}</b><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>${project.symbol}</small></span><em>▲ {votes[project.slug]??project.votes}</em></button>)}</section></aside>
+      <aside className="utility-rail">
+        <section className="swap-widget swap-placeholder"><div className="widget-title"><div><span className="eyebrow">SOLPITCH</span><h2>Swap</h2></div><span className="live-pill">COMING SOON</span></div><div className="swap-field"><small>You pay</small><div><strong>0.00</strong><button>◎ SOL</button></div></div><div className="switch">↓</div><div className="swap-field"><small>You receive</small><div><strong>0.00</strong><button>Select token</button></div></div><button className="placeholder-button" disabled>Swap integration will appear here</button><p>The live swap remains at solpitch.net until we embed it safely.</p></section>
+        <section className="side-widget leaderboard-widget"><div className="widget-title"><div><h3>Most Voted This Week</h3><small>Community leaderboard</small></div><span className="competition-live">LIVE</span></div>{ranked.slice(0,5).map((project,index)=><RankedProject key={project.slug} project={project} rank={index+1} votes={votes[project.slug]??0} onOpen={()=>setSelected(project)} />)}<button className="view-all-ranking">View Top 100 →</button><p className="ranking-note">Top positions earn homepage visibility. Preview votes reset to zero before launch.</p></section>
+        <section className="side-widget"><div className="widget-title"><div><h3>Recently Claimed</h3><small>Verified owners</small></div></div>{projects.filter(p=>p.claimStatus==="verified").slice(0,4).map(project=><button className="activity-project" key={project.slug} onClick={()=>setSelected(project)}><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>Owner verified ✓</small></span></button>)}</section>
+        <section className="side-widget"><div className="widget-title"><div><h3>Recently Added to Swap</h3><small>Newest first</small></div></div>{projects.filter(p=>tradable.has(p.projectStatus)).map((project,index)=><button className="activity-project swap-added" key={project.slug} onClick={()=>setSelected(project)}><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>${project.symbol} · {index===0?"Just added":"Available to swap"}</small></span><em>Swap →</em></button>)}</section>
+      </aside>
     </div>
     {claiming && <ClaimDialog project={claiming} onClose={()=>setClaiming(null)} />}
   </div>;
