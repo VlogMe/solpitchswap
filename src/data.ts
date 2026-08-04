@@ -2,24 +2,6 @@ import type { Project } from "./types";
 
 export const projects: Project[] = [
   {
-    slug: "spsp",
-    name: "SolPitch Swap Project",
-    symbol: "SPSP",
-    contractAddress: "gpshGHm3huLsyTDYsQ7hXJtB9Kb3WhqQxesZaHPpump",
-    projectStatus: "launched",
-    claimStatus: "verified",
-    pitch: "The SolPitch ecosystem token, planned for creator tools, promoted placements and platform utility.",
-    description: "SPSP is the founding SolPitch ecosystem token. Its planned utility includes promoted project placements, creator tools, premium visibility options and future ecosystem benefits as those features are released.",
-    badges: ["Owner Verified", "Founding Project", "Featured"],
-    marketCap: "Live data soon",
-    liquidity: "Live data soon",
-    volume24h: "Live data soon",
-    holders: "Live data soon",
-    votes: 214,
-    listedLabel: "Founding project",
-    links: { website: "https://solpitch.net" },
-  },
-  {
     slug: "toez",
     name: "TOEZ",
     symbol: "TOEZ",
