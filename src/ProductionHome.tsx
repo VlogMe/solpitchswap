@@ -66,7 +66,8 @@ export default function ProductionHome() {
   const ranked = useMemo(() => [...projects].sort((a,b)=>(votes[b.slug]??0)-(votes[a.slug]??0)), [votes]);
   const vote = (project: Project) => setVotes(v => ({ ...v, [project.slug]: (v[project.slug] ?? 0) + 1 }));
   const favorite = (project: Project) => setFavorites(current => { const next = new Set(current); next.has(project.slug) ? next.delete(project.slug) : next.add(project.slug); return next; });
-  const verifiedCount = projects.filter(p => p.claimStatus === "verified").length;
+  const claimedProjects = projects.filter(p => p.claimStatus === "verified");
+  const verifiedCount = claimedProjects.length;
   const communityCount = projects.length - verifiedCount;
 
   return <div className="production-app">
@@ -82,7 +83,7 @@ export default function ProductionHome() {
       <aside className="utility-rail">
         <section className="swap-widget swap-placeholder"><div className="widget-title"><div><span className="eyebrow">SOLPITCH</span><h2>Swap</h2></div><span className="live-pill">COMING SOON</span></div><div className="swap-field"><small>You pay</small><div><strong>0.00</strong><button>◎ SOL</button></div></div><div className="switch">↓</div><div className="swap-field"><small>You receive</small><div><strong>0.00</strong><button>Select token</button></div></div><button className="placeholder-button" disabled>Swap integration will appear here</button><p>The live swap remains at solpitch.net until we embed it safely.</p></section>
         <section className="side-widget leaderboard-widget"><div className="widget-title"><div><h3>Most Voted This Week</h3><small>Community leaderboard</small></div><span className="competition-live">LIVE</span></div>{ranked.slice(0,5).map((project,index)=><RankedProject key={project.slug} project={project} rank={index+1} votes={votes[project.slug]??0} onOpen={()=>setSelected(project)} />)}<button className="view-all-ranking">View Top 100 →</button><p className="ranking-note">Top positions earn homepage visibility. Preview votes reset to zero before launch.</p></section>
-        <section className="side-widget"><div className="widget-title"><div><h3>Recently Claimed</h3><small>Verified owners</small></div></div>{projects.filter(p=>p.claimStatus==="verified").slice(0,4).map(project=><button className="activity-project" key={project.slug} onClick={()=>setSelected(project)}><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>Owner verified ✓</small></span></button>)}</section>
+        <section className="side-widget"><div className="widget-title"><div><h3>Recently Claimed</h3><small>Verified owners</small></div></div>{claimedProjects.length > 0 ? claimedProjects.slice(0,4).map(project=><button className="activity-project" key={project.slug} onClick={()=>setSelected(project)}><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>Owner verified ✓</small></span></button>) : <div className="side-empty"><strong>0 claimed yet</strong><span>Verified project owners will appear here after completing the claim process.</span></div>}</section>
         <section className="side-widget"><div className="widget-title"><div><h3>Recently Added to Swap</h3><small>Newest first</small></div></div>{projects.filter(p=>tradable.has(p.projectStatus)).map((project,index)=><button className={`activity-project swap-added ${index===0?"newest-added":""}`} key={project.slug} onClick={()=>setSelected(project)}><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>${project.symbol} · {index===0?"Just added":"Available to swap"}</small></span><em>Swap →</em></button>)}</section>
       </aside>
     </div>
