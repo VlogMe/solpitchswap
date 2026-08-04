@@ -5,12 +5,13 @@ CREATE TABLE IF NOT EXISTS submissions (
   name TEXT NOT NULL,
   symbol TEXT NOT NULL,
   contract_address TEXT NOT NULL UNIQUE,
+  project_status TEXT NOT NULL CHECK (project_status IN ('graduated','bonding','launched','presale','upcoming')),
   pitch TEXT NOT NULL,
   description TEXT NOT NULL,
   website TEXT,
   x_url TEXT,
   telegram_url TEXT,
-  graduation_proof_url TEXT NOT NULL,
+  status_proof_url TEXT NOT NULL,
   submitter_email TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   reviewer_notes TEXT,
@@ -20,6 +21,9 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 CREATE INDEX IF NOT EXISTS idx_submissions_status_created_at
 ON submissions(status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_submissions_project_status
+ON submissions(project_status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS admin_sessions (
   token_hash TEXT PRIMARY KEY,
