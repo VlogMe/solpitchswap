@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "solpitch-listings",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "290e1579-51dc-4a91-8398-248e04eded51",
       "migrations_dir": "worker/migrations"
     }
   ],
