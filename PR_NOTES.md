@@ -10,6 +10,7 @@
 - Search, project detail view, rankings and promoted placements
 - Responsive workflow styling
 - Production preview deployment trigger repaired on 2026-08-04
+- Cloudflare fresh-branch deployment retriggered after branch-control update
 
 ## Production requirement
 
