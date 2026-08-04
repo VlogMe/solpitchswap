@@ -1,25 +1,77 @@
 # SolPitch Graduated Listings Platform
 
-This branch contains the fresh React/Vite/TypeScript build for SolPitch.
+Fresh React/Vite/TypeScript application with a Cloudflare Worker API and D1 database.
 
-## Current features
+## Implemented
 
 - Three-column graduated-project directory
-- Reusable project cards, rankings, promoted placements and swap panel
-- Search by project name, ticker or contract address
-- Project detail view for Onyx
-- Graduated-coin submission form
-- Admin review queue with approve and reject controls
-- Persistent development submissions using browser localStorage
+- Onyx project detail view
+- Public graduated-coin submission form
+- D1-backed submission storage
+- Protected admin login with an HttpOnly session cookie
+- Admin queue with approve/reject decisions and reviewer notes
+- Optional server-side Cloudflare Turnstile validation
+- Prepared D1 statements and server-side input validation
+- Search, badges, promoted placements, rankings and compact swap panel
 
-## Permanent listing rule
+## Listing rule
 
-SolPitch accepts graduated or bonded Solana projects only. No presales, upcoming launches or unbonded tokens.
+Only graduated or bonded Solana projects are accepted. No presales, upcoming launches or unbonded tokens.
 
-## Important production note
+## Local setup
 
-The current submission and review persistence is a development implementation stored in the browser. A production deployment requires authenticated admin access and a server-side database before public launch.
+```bash
+npm install
+npm run db:migrate:local
+npm run api:dev
+npm run dev
+```
+
+Set `VITE_API_BASE_URL` in `.env.local` when the API is served from a different origin.
+
+## Cloudflare provisioning
+
+1. Create the database:
+
+```bash
+npx wrangler d1 create solpitch-listings
+```
+
+2. Replace `REPLACE_WITH_D1_DATABASE_ID` in `wrangler.jsonc` with the returned database ID.
+
+3. Add secrets:
+
+```bash
+npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put TURNSTILE_SECRET
+```
+
+`TURNSTILE_SECRET` is optional until the browser widget is added. When configured, every public submission must contain a valid Turnstile token.
+
+4. Apply the migration and deploy:
+
+```bash
+npm run db:migrate:remote
+npm run api:deploy
+```
+
+5. Set the frontend API URL:
+
+```bash
+VITE_API_BASE_URL=https://solpitch-listings-api.<account>.workers.dev
+```
+
+6. Update `ALLOWED_ORIGIN` in `wrangler.jsonc` to the exact production frontend origin before deployment.
+
+## Security design
+
+- Admin passwords are stored only as Worker secrets.
+- Successful login creates a random server-side session stored as a SHA-256 hash in D1.
+- The browser receives an `HttpOnly`, `Secure`, `SameSite=Strict` cookie.
+- Admin endpoints require a valid unexpired session.
+- Public inputs are validated on the server and inserted through bound prepared statements.
+- Turnstile validation is performed server-side when enabled.
 
 ## Swap safety boundary
 
-The existing Jupiter, Phantom, Buffer, RPC, signing and transaction code is not included or modified here. The sidebar links to the proven live swap at https://solpitch.net.
+The existing Jupiter, Phantom, Buffer, RPC, signing and transaction code is not included or modified. The sidebar continues to link to the proven live swap at https://solpitch.net.
