@@ -3,6 +3,7 @@ import ProductionHome from "./ProductionHome";
 import { projects as fallbackProjects } from "./data";
 import { getPublishedProjects } from "./api";
 import { AdminPanel, SubmitProjectPanel } from "./WorkflowPanels";
+import "./workflows.css";
 
 type Panel = "submit" | "admin" | null;
 
