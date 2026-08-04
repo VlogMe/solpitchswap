@@ -1,4 +1,4 @@
-export type ProjectBadge = "Verified" | "Featured" | "Trending" | "Community Listed" | "Owner Verified";
+export type ProjectBadge = "Verified" | "Featured" | "Trending" | "Community Listed" | "Owner Verified" | "Founding Project";
 export type ProjectStatus = "graduated" | "bonding" | "launched" | "presale" | "upcoming";
 export type ClaimStatus = "unclaimed" | "pending" | "verified" | "disputed";
 
@@ -12,6 +12,7 @@ export type Project = {
   pitch: string;
   description: string;
   badges: ProjectBadge[];
+  logoURI?: string;
   marketCap: string;
   liquidity: string;
   volume24h: string;
