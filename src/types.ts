@@ -14,12 +14,7 @@ export type Project = {
   holders: string;
   votes: number;
   listedLabel: string;
-  links: {
-    website?: string;
-    x?: string;
-    telegram?: string;
-    discord?: string;
-  };
+  links: { website?: string; x?: string; telegram?: string; discord?: string };
 };
 
 export type SubmissionStatus = "pending" | "approved" | "rejected";
@@ -37,5 +32,6 @@ export type CoinSubmission = {
   x: string;
   telegram: string;
   graduationProof: string;
+  submitterEmail: string;
   reviewerNote?: string;
 };
