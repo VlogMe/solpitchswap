@@ -10,12 +10,36 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body;
 }
 
+export type TokenAnalysis = {
+  found: boolean;
+  address: string;
+  name?: string;
+  symbol?: string;
+  logoUrl?: string;
+  website?: string;
+  xUrl?: string;
+  telegramUrl?: string;
+  dexScreenerUrl?: string;
+  dexId?: string;
+  pairAddress?: string;
+  priceUsd?: string;
+  liquidityUsd?: number;
+  marketCap?: number;
+  volume24h?: number;
+  pairCreatedAt?: number | null;
+  tradable: boolean;
+  pairCount?: number;
+};
+
 export type SubmissionPayload = {
   name: string; symbol: string; contractAddress: string; projectStatus: ProjectStatus;
   pitch: string; description: string; website?: string; xUrl?: string; telegramUrl?: string;
   logoUrl?: string; statusProofUrl: string; submitterEmail: string; turnstileToken?: string;
 };
 
+export async function analyzeToken(contractAddress: string) {
+  return request<TokenAnalysis>(`/api/analyze-token?address=${encodeURIComponent(contractAddress.trim())}`);
+}
 export async function getPublishedProjects() {
   const result = await request<{ projects: Record<string, unknown>[] }>("/api/projects");
   return result.projects.map(mapProjectRow);
