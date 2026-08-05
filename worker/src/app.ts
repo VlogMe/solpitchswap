@@ -1,4 +1,4 @@
-import baseWorker from "./router";
+import baseWorker from "./index";
 
 interface Env {
   DB: D1Database;
