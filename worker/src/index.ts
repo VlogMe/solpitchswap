@@ -11,10 +11,22 @@ type SubmissionInput = {
   pitch: string; description: string; website?: string; xUrl?: string; telegramUrl?: string;
   logoUrl?: string; statusProofUrl: string; submitterEmail: string; turnstileToken?: string;
 };
+type DexPair = {
+  url?: string; dexId?: string; pairAddress?: string; priceUsd?: string;
+  baseToken?: { address?: string; name?: string; symbol?: string };
+  quoteToken?: { address?: string; name?: string; symbol?: string };
+  liquidity?: { usd?: number }; marketCap?: number; fdv?: number; pairCreatedAt?: number;
+  volume?: { h24?: number }; info?: {
+    imageUrl?: string;
+    websites?: Array<{ url?: string }>;
+    socials?: Array<{ platform?: string; handle?: string }>;
+  };
+};
 
 const SESSION_COOKIE = "solpitch_admin";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const PROJECT_STATUSES: ProjectStatus[] = ["graduated", "bonding", "launched", "presale", "upcoming"];
+const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,64}$/;
 
 function json(data: unknown, status = 200, headers: HeadersInit = {}) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...headers } });
@@ -57,7 +69,7 @@ function validateSubmission(input: SubmissionInput) {
   if (!PROJECT_STATUSES.includes(input.projectStatus)) return "Project status is invalid.";
   if (input.name.length > 80 || input.symbol.length > 16) return "Name or ticker is too long.";
   if (input.pitch.length > 300 || input.description.length > 5000) return "Project text exceeds the allowed length.";
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(input.contractAddress)) return "Contract address format is invalid.";
+  if (!SOLANA_ADDRESS.test(input.contractAddress)) return "Contract address format is invalid.";
   if (!/^\S+@\S+\.\S+$/.test(input.submitterEmail)) return "Email address is invalid.";
   for (const value of [input.website, input.xUrl, input.telegramUrl, input.logoUrl, input.statusProofUrl]) if (!validUrl(value)) return "One or more URLs are invalid.";
   return null;
@@ -66,12 +78,61 @@ function slugify(name: string, symbol: string) {
   const base = `${name}-${symbol}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70);
   return `${base}-${crypto.randomUUID().slice(0, 6)}`;
 }
+function socialUrl(pair: DexPair, platform: string) {
+  const social = pair.info?.socials?.find(item => item.platform?.toLowerCase() === platform);
+  if (!social?.handle) return undefined;
+  if (/^https?:\/\//.test(social.handle)) return social.handle;
+  if (platform === "twitter") return `https://x.com/${social.handle.replace(/^@/, "")}`;
+  if (platform === "telegram") return `https://t.me/${social.handle.replace(/^@/, "")}`;
+  return social.handle;
+}
+async function analyzeToken(address: string) {
+  const response = await fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${encodeURIComponent(address)}`, {
+    headers: { accept: "application/json", "user-agent": "SolPitch/1.0" },
+  });
+  if (!response.ok) throw new Error(`Token data provider returned ${response.status}.`);
+  const pairs = await response.json<DexPair[]>();
+  if (!Array.isArray(pairs) || pairs.length === 0) return { found: false, address, tradable: false };
+  const pair = [...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
+  const baseIsToken = pair.baseToken?.address === address;
+  const token = baseIsToken ? pair.baseToken : pair.quoteToken;
+  return {
+    found: true,
+    address,
+    name: token?.name ?? "",
+    symbol: token?.symbol ?? "",
+    logoUrl: pair.info?.imageUrl ?? "",
+    website: pair.info?.websites?.[0]?.url ?? "",
+    xUrl: socialUrl(pair, "twitter") ?? "",
+    telegramUrl: socialUrl(pair, "telegram") ?? "",
+    dexScreenerUrl: pair.url ?? "",
+    dexId: pair.dexId ?? "",
+    pairAddress: pair.pairAddress ?? "",
+    priceUsd: pair.priceUsd ?? "",
+    liquidityUsd: pair.liquidity?.usd ?? 0,
+    marketCap: pair.marketCap ?? pair.fdv ?? 0,
+    volume24h: pair.volume?.h24 ?? 0,
+    pairCreatedAt: pair.pairCreatedAt ?? null,
+    tradable: (pair.liquidity?.usd ?? 0) > 0 && Boolean(pair.priceUsd),
+    pairCount: pairs.length,
+  };
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url); const cors = corsHeaders(request, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (url.pathname === "/api/health") return json({ ok: true }, 200, cors);
+
+    if (url.pathname === "/api/analyze-token" && request.method === "GET") {
+      const address = (url.searchParams.get("address") ?? "").trim();
+      if (!SOLANA_ADDRESS.test(address)) return json({ error: "Enter a valid Solana contract address." }, 400, cors);
+      try {
+        return json(await analyzeToken(address), 200, { ...cors, "cache-control": "public, max-age=30" });
+      } catch (error) {
+        return json({ error: error instanceof Error ? error.message : "Token analysis failed." }, 502, cors);
+      }
+    }
 
     if (url.pathname === "/api/projects" && request.method === "GET") {
       const results = await env.DB.prepare("SELECT * FROM projects ORDER BY published_at DESC LIMIT 500").all();
