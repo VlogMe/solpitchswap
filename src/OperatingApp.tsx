@@ -8,7 +8,7 @@ import type { Project } from "./types";
 import "./workflows.css";
 
 type Panel = "submit" | "admin" | "claims" | "projects" | null;
-type PhantomProvider = { isPhantom?: boolean; publicKey?: { toString(): string }; connect(): Promise<{ publicKey: { toString(): string } }>; signMessage(message: Uint8Array, display?: string): Promise<{ signature: Uint8Array }> };
+type PhantomProvider = { isPhantom?: boolean; publicKey?: { toString(): string }; connect(): Promise<{ publicKey: { toString(): string } }>; signMessage(message: Uint8Array, display?: "utf8"): Promise<{ signature: Uint8Array }> };
 declare global { interface Window { solana?: PhantomProvider } }
 function bytesToBase64(bytes: Uint8Array) { let binary = ""; bytes.forEach(byte => { binary += String.fromCharCode(byte); }); return btoa(binary); }
 function money(value?: number) { return value ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2 }).format(value) : "Unavailable"; }
