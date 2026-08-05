@@ -1,4 +1,4 @@
-import baseWorker from "./index";
+import baseWorker from "./app";
 
 interface Env {
   DB: D1Database;
@@ -48,8 +48,15 @@ export default {
     const url = new URL(request.url);
     const cors = corsHeaders(request, env);
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: cors });
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+
+    const marketMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/market$/);
+    if (marketMatch && request.method === "GET") {
+      const project = await env.DB.prepare("SELECT contract_address FROM projects WHERE slug = ?1 LIMIT 1")
+        .bind(decodeURIComponent(marketMatch[1]))
+        .first<{ contract_address: string }>();
+      if (!project) return json({ error: "Project not found." }, 404, cors);
+      return analyzeAddress(request, env, project.contract_address);
     }
 
     const publicProjectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/);
@@ -61,15 +68,6 @@ export default {
       return json({ project }, 200, { ...cors, "cache-control": "public, max-age=30" });
     }
 
-    const marketMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/market$/);
-    if (marketMatch && request.method === "GET") {
-      const project = await env.DB.prepare("SELECT contract_address FROM projects WHERE slug = ?1 LIMIT 1")
-        .bind(decodeURIComponent(marketMatch[1]))
-        .first<{ contract_address: string }>();
-      if (!project) return json({ error: "Project not found." }, 404, cors);
-      return analyzeAddress(request, env, project.contract_address);
-    }
-
     if (url.pathname === "/api/admin/projects" && request.method === "GET") {
       if (!(await isAdmin(request, env))) return json({ error: "Unauthorized." }, 401, cors);
       const query = (url.searchParams.get("q") ?? "").trim();
@@ -79,20 +77,24 @@ export default {
       return json({ projects: results.results }, 200, cors);
     }
 
+    const resetVotesMatch = url.pathname.match(/^\/api\/admin\/projects\/([^/]+)\/reset-votes$/);
+    if (resetVotesMatch && request.method === "POST") {
+      if (!(await isAdmin(request, env))) return json({ error: "Unauthorized." }, 401, cors);
+      const id = decodeURIComponent(resetVotesMatch[1]);
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM wallet_votes WHERE project_id = ?1").bind(id),
+        env.DB.prepare("UPDATE projects SET votes = 0, updated_at=CURRENT_TIMESTAMP WHERE id = ?1").bind(id),
+      ]);
+      return json({ ok: true }, 200, cors);
+    }
+
     const adminProjectMatch = url.pathname.match(/^\/api\/admin\/projects\/([^/]+)$/);
     if (adminProjectMatch && request.method === "PATCH") {
       if (!(await isAdmin(request, env))) return json({ error: "Unauthorized." }, 401, cors);
       const body = await request.json<{
-        name?: string;
-        symbol?: string;
-        pitch?: string;
-        description?: string;
-        website?: string;
-        xUrl?: string;
-        telegramUrl?: string;
-        logoUrl?: string;
-        addedToSwap?: boolean;
-        promoted?: boolean;
+        name?: string; symbol?: string; pitch?: string; description?: string;
+        website?: string; xUrl?: string; telegramUrl?: string; logoUrl?: string;
+        addedToSwap?: boolean; promoted?: boolean;
         claimStatus?: "unclaimed" | "pending" | "verified" | "disputed";
       }>().catch(() => ({}));
       const id = decodeURIComponent(adminProjectMatch[1]);
@@ -100,8 +102,7 @@ export default {
       if (!existing) return json({ error: "Project not found." }, 404, cors);
       await env.DB.prepare(`UPDATE projects SET
         name=?1,symbol=?2,pitch=?3,description=?4,website=?5,x_url=?6,telegram_url=?7,logo_url=?8,
-        added_to_swap=?9,promoted=?10,claim_status=?11,updated_at=CURRENT_TIMESTAMP
-        WHERE id=?12`)
+        added_to_swap=?9,promoted=?10,claim_status=?11,updated_at=CURRENT_TIMESTAMP WHERE id=?12`)
         .bind(
           body.name?.trim() || existing.name,
           body.symbol?.trim().toUpperCase() || existing.symbol,
@@ -128,17 +129,6 @@ export default {
         env.DB.prepare("DELETE FROM wallet_votes WHERE project_id = ?1").bind(id),
         env.DB.prepare("DELETE FROM activity_events WHERE project_id = ?1").bind(id),
         env.DB.prepare("DELETE FROM projects WHERE id = ?1").bind(id),
-      ]);
-      return json({ ok: true }, 200, cors);
-    }
-
-    const resetVotesMatch = url.pathname.match(/^\/api\/admin\/projects\/([^/]+)\/reset-votes$/);
-    if (resetVotesMatch && request.method === "POST") {
-      if (!(await isAdmin(request, env))) return json({ error: "Unauthorized." }, 401, cors);
-      const id = decodeURIComponent(resetVotesMatch[1]);
-      await env.DB.batch([
-        env.DB.prepare("DELETE FROM wallet_votes WHERE project_id = ?1").bind(id),
-        env.DB.prepare("UPDATE projects SET votes = 0, updated_at=CURRENT_TIMESTAMP WHERE id = ?1").bind(id),
       ]);
       return json({ ok: true }, 200, cors);
     }
