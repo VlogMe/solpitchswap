@@ -2,7 +2,17 @@ import type { CoinSubmission, Project, ProjectCategory, ProjectStatus } from "./
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://solpitchswap.kevingpersson.workers.dev";
 type ApiError = { error?: string };
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> { const response = await fetch(`${API_BASE}${path}`, { ...init, credentials: "include", headers: { "content-type": "application/json", ...(init.headers ?? {}) } }); const body = await response.json().catch(() => ({})) as T & ApiError; if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`); return body; }
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const hasBody = init.body !== undefined && init.body !== null;
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    credentials: "include",
+    headers: hasBody ? { "content-type": "application/json", ...(init.headers ?? {}) } : init.headers,
+  });
+  const body = await response.json().catch(() => ({})) as T & ApiError;
+  if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+  return body;
+}
 
 export type TokenAnalysis = { found:boolean; address:string; tradable:boolean; name?:string; symbol?:string; logoUrl?:string; website?:string; xUrl?:string; telegramUrl?:string; dexScreenerUrl?:string; dexId?:string; pairAddress?:string; priceUsd?:string; liquidityUsd?:number; marketCap?:number; volume24h?:number; metadataFound?:number; metadataTotal?:number; analysisLevel?:"strong"|"review"|"manual"; description?:string; pitch?:string; metadataSource?:string; descriptionFound?:boolean };
 export type ClaimRequest = { id:string; projectName:string; projectSymbol:string; projectSlug:string; walletAddress:string; evidenceUrl:string; submitterEmail:string; createdAt:string };
