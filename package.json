@@ -14,7 +14,9 @@
     "api:deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@solana/web3.js": "latest",
     "@vitejs/plugin-react": "latest",
+    "buffer": "latest",
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest",
