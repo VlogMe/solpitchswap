@@ -1,4 +1,4 @@
-import type { CoinSubmission, Project, ProjectStatus } from "./types";
+import type { CoinSubmission, Project, ProjectCategory, ProjectStatus } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://solpitchswap.kevingpersson.workers.dev";
 type ApiError = { error?: string };
@@ -25,5 +25,25 @@ export async function getPendingClaims(){const result=await request<{claims:Reco
 export async function reviewSubmission(id:string,status:"approved"|"rejected",reviewerNotes:string,options:{addedToSwap?:boolean;promoted?:boolean;logoUrl?:string}={}){return request<{ok:true}>(`/api/admin/submissions/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({status,reviewerNotes,...options})});}
 export async function reviewClaim(id:string,status:"approved"|"rejected",reviewerNotes:string){return request<{ok:true}>(`/api/admin/claims/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({status,reviewerNotes})});}
 
-function mapProjectRow(row:Record<string,unknown>):Project{const promoted=Number(row.promoted??0)===1;return{slug:String(row.slug),name:String(row.name),symbol:String(row.symbol),contractAddress:String(row.contract_address),projectStatus:String(row.project_status) as ProjectStatus,claimStatus:String(row.claim_status??'unclaimed') as Project['claimStatus'],pitch:String(row.pitch),description:String(row.description),badges:promoted?["Community Listed","Featured"]:["Community Listed"],logoURI:String(row.logo_url??'')||undefined,marketCap:'Live data soon',liquidity:'Live data soon',volume24h:'Live data soon',holders:'Live data soon',votes:Number(row.votes??0),listedLabel:new Date(String(row.published_at)).toLocaleDateString(),links:{website:String(row.website??'')||undefined,x:String(row.x_url??'')||undefined,telegram:String(row.telegram_url??'')||undefined}};}
+function categoryFromDescription(value: string): ProjectCategory {
+  const match = value.match(/^\[Category: ([^\]]+)\]/);
+  const category = match?.[1] as ProjectCategory | undefined;
+  return category ?? "Other";
+}
+function cleanDescription(value: string) { return value.replace(/^\[Category: [^\]]+\]\s*/, ""); }
+function mapProjectRow(row:Record<string,unknown>):Project{
+  const promoted=Number(row.promoted??0)===1;
+  const description=String(row.description??"");
+  const publishedAt=String(row.published_at??"");
+  return{
+    id:String(row.id??"")||undefined,
+    slug:String(row.slug),name:String(row.name),symbol:String(row.symbol),contractAddress:String(row.contract_address),
+    projectStatus:String(row.project_status) as ProjectStatus,claimStatus:String(row.claim_status??'unclaimed') as Project['claimStatus'],
+    category:categoryFromDescription(description),pitch:String(row.pitch||"No public short description has been provided."),description:cleanDescription(description)||"No public project description has been provided.",
+    badges:promoted?["Community Listed","Featured"]:["Community Listed"],logoURI:String(row.logo_url??'')||undefined,
+    marketCap:'Updating…',liquidity:'Updating…',volume24h:'Updating…',holders:'Unavailable',votes:Number(row.votes??0),
+    addedToSwap:Number(row.added_to_swap??0)===1,promoted,listedLabel:publishedAt?new Date(publishedAt).toLocaleDateString():"Recently",publishedAt,
+    links:{website:String(row.website??'')||undefined,x:String(row.x_url??'')||undefined,telegram:String(row.telegram_url??'')||undefined}
+  };
+}
 function mapSubmissionRow(row:Record<string,unknown>):CoinSubmission{return{id:String(row.id),name:String(row.name),symbol:String(row.symbol),contractAddress:String(row.contract_address),projectStatus:String(row.project_status) as ProjectStatus,pitch:String(row.pitch),description:String(row.description),website:String(row.website??''),x:String(row.x_url??''),telegram:String(row.telegram_url??''),statusProof:String(row.status_proof_url),submitterEmail:String(row.submitter_email??''),reviewerNote:String(row.reviewer_notes??''),status:String(row.status) as CoinSubmission['status'],submittedAt:String(row.created_at)};}
