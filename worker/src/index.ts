@@ -16,188 +16,53 @@ type DexPair = {
   baseToken?: { address?: string; name?: string; symbol?: string };
   quoteToken?: { address?: string; name?: string; symbol?: string };
   liquidity?: { usd?: number }; marketCap?: number; fdv?: number; pairCreatedAt?: number;
-  volume?: { h24?: number }; info?: {
-    imageUrl?: string;
-    websites?: Array<{ url?: string }>;
-    socials?: Array<{ platform?: string; handle?: string }>;
-  };
+  volume?: { h24?: number }; info?: { imageUrl?: string; websites?: Array<{ url?: string }>; socials?: Array<{ platform?: string; handle?: string }> };
 };
 
 const SESSION_COOKIE = "solpitch_admin";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const PROJECT_STATUSES: ProjectStatus[] = ["graduated", "bonding", "launched", "presale", "upcoming"];
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,64}$/;
+const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-function json(data: unknown, status = 200, headers: HeadersInit = {}) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...headers } });
-}
+function json(data: unknown, status = 200, headers: HeadersInit = {}) { return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...headers } }); }
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
   if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
   return { "access-control-allow-origin": origin, "access-control-allow-credentials": "true", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET,POST,PATCH,OPTIONS", vary: "Origin" };
 }
-function parseCookies(request: Request) {
-  const cookie = request.headers.get("cookie") ?? "";
-  return Object.fromEntries(cookie.split(";").map(part => part.trim().split("=")).filter(pair => pair.length === 2));
-}
-async function sha256(value: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
-}
-function secureCompare(a: string, b: string) {
-  const aBytes = new TextEncoder().encode(a); const bBytes = new TextEncoder().encode(b);
-  const length = Math.max(aBytes.length, bBytes.length); let mismatch = aBytes.length ^ bBytes.length;
-  for (let i = 0; i < length; i += 1) mismatch |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
-  return mismatch === 0;
-}
-async function requireAdmin(request: Request, env: Env) {
-  const token = parseCookies(request)[SESSION_COOKIE]; if (!token) return false;
-  const session = await env.DB.prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ?1 AND expires_at > datetime('now') LIMIT 1").bind(await sha256(token)).first();
-  return Boolean(session);
-}
-async function verifyTurnstile(token: string | undefined, request: Request, env: Env) {
-  if (!env.TURNSTILE_SECRET) return true; if (!token) return false;
-  const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
-  const remoteIp = request.headers.get("CF-Connecting-IP"); if (remoteIp) body.set("remoteip", remoteIp);
-  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body });
-  return (await response.json<{ success: boolean }>()).success === true;
-}
+function parseCookies(request: Request) { const cookie = request.headers.get("cookie") ?? ""; return Object.fromEntries(cookie.split(";").map(part => part.trim().split("=")).filter(pair => pair.length === 2)); }
+async function sha256(value: string) { const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join(""); }
+function secureCompare(a: string, b: string) { const aBytes = new TextEncoder().encode(a); const bBytes = new TextEncoder().encode(b); const length = Math.max(aBytes.length, bBytes.length); let mismatch = aBytes.length ^ bBytes.length; for (let i = 0; i < length; i += 1) mismatch |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0); return mismatch === 0; }
+async function requireAdmin(request: Request, env: Env) { const token = parseCookies(request)[SESSION_COOKIE]; if (!token) return false; const session = await env.DB.prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ?1 AND expires_at > datetime('now') LIMIT 1").bind(await sha256(token)).first(); return Boolean(session); }
+async function verifyTurnstile(token: string | undefined, request: Request, env: Env) { if (!env.TURNSTILE_SECRET) return true; if (!token) return false; const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token }); const remoteIp = request.headers.get("CF-Connecting-IP"); if (remoteIp) body.set("remoteip", remoteIp); const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body }); return (await response.json<{ success: boolean }>()).success === true; }
 function validUrl(value?: string) { if (!value) return true; try { new URL(value); return true; } catch { return false; } }
-function validateSubmission(input: SubmissionInput) {
-  const required = [input.name, input.symbol, input.contractAddress, input.projectStatus, input.pitch, input.description, input.statusProofUrl, input.submitterEmail];
-  if (required.some(value => !value?.trim())) return "All required fields must be completed.";
-  if (!PROJECT_STATUSES.includes(input.projectStatus)) return "Project status is invalid.";
-  if (input.name.length > 80 || input.symbol.length > 16) return "Name or ticker is too long.";
-  if (input.pitch.length > 300 || input.description.length > 5000) return "Project text exceeds the allowed length.";
-  if (!SOLANA_ADDRESS.test(input.contractAddress)) return "Contract address format is invalid.";
-  if (!/^\S+@\S+\.\S+$/.test(input.submitterEmail)) return "Email address is invalid.";
-  for (const value of [input.website, input.xUrl, input.telegramUrl, input.logoUrl, input.statusProofUrl]) if (!validUrl(value)) return "One or more URLs are invalid.";
-  return null;
-}
-function slugify(name: string, symbol: string) {
-  const base = `${name}-${symbol}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70);
-  return `${base}-${crypto.randomUUID().slice(0, 6)}`;
-}
-function socialUrl(pair: DexPair, platform: string) {
-  const social = pair.info?.socials?.find(item => item.platform?.toLowerCase() === platform);
-  if (!social?.handle) return undefined;
-  if (/^https?:\/\//.test(social.handle)) return social.handle;
-  if (platform === "twitter") return `https://x.com/${social.handle.replace(/^@/, "")}`;
-  if (platform === "telegram") return `https://t.me/${social.handle.replace(/^@/, "")}`;
-  return social.handle;
-}
-async function analyzeToken(address: string) {
-  const response = await fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${encodeURIComponent(address)}`, {
-    headers: { accept: "application/json", "user-agent": "SolPitch/1.0" },
-  });
-  if (!response.ok) throw new Error(`Token data provider returned ${response.status}.`);
-  const pairs = await response.json<DexPair[]>();
-  if (!Array.isArray(pairs) || pairs.length === 0) return { found: false, address, tradable: false };
-  const pair = [...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
-  const baseIsToken = pair.baseToken?.address === address;
-  const token = baseIsToken ? pair.baseToken : pair.quoteToken;
-  return {
-    found: true,
-    address,
-    name: token?.name ?? "",
-    symbol: token?.symbol ?? "",
-    logoUrl: pair.info?.imageUrl ?? "",
-    website: pair.info?.websites?.[0]?.url ?? "",
-    xUrl: socialUrl(pair, "twitter") ?? "",
-    telegramUrl: socialUrl(pair, "telegram") ?? "",
-    dexScreenerUrl: pair.url ?? "",
-    dexId: pair.dexId ?? "",
-    pairAddress: pair.pairAddress ?? "",
-    priceUsd: pair.priceUsd ?? "",
-    liquidityUsd: pair.liquidity?.usd ?? 0,
-    marketCap: pair.marketCap ?? pair.fdv ?? 0,
-    volume24h: pair.volume?.h24 ?? 0,
-    pairCreatedAt: pair.pairCreatedAt ?? null,
-    tradable: (pair.liquidity?.usd ?? 0) > 0 && Boolean(pair.priceUsd),
-    pairCount: pairs.length,
-  };
-}
+function validateSubmission(input: SubmissionInput) { const required = [input.name,input.symbol,input.contractAddress,input.projectStatus,input.pitch,input.description,input.statusProofUrl,input.submitterEmail]; if (required.some(value=>!value?.trim())) return "All required fields must be completed."; if (!PROJECT_STATUSES.includes(input.projectStatus)) return "Project status is invalid."; if (input.name.length>80||input.symbol.length>16) return "Name or ticker is too long."; if (input.pitch.length>300||input.description.length>5000) return "Project text exceeds the allowed length."; if (!SOLANA_ADDRESS.test(input.contractAddress)) return "Contract address format is invalid."; if (!/^\S+@\S+\.\S+$/.test(input.submitterEmail)) return "Email address is invalid."; for (const value of [input.website,input.xUrl,input.telegramUrl,input.logoUrl,input.statusProofUrl]) if (!validUrl(value)) return "One or more URLs are invalid."; return null; }
+function slugify(name: string, symbol: string) { const base = `${name}-${symbol}`.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,70); return `${base}-${crypto.randomUUID().slice(0,6)}`; }
+function socialUrl(pair: DexPair, platform: string) { const social=pair.info?.socials?.find(item=>item.platform?.toLowerCase()===platform); if(!social?.handle)return undefined; if(/^https?:\/\//.test(social.handle))return social.handle; if(platform==="twitter")return `https://x.com/${social.handle.replace(/^@/,"")}`; if(platform==="telegram")return `https://t.me/${social.handle.replace(/^@/,"")}`; return social.handle; }
+function decodeBase58(value: string) { const bytes=[0]; for(const char of value){const digit=BASE58.indexOf(char); if(digit<0)throw new Error("Invalid base58 value."); let carry=digit; for(let i=0;i<bytes.length;i++){carry+=bytes[i]*58; bytes[i]=carry&255; carry>>=8;} while(carry){bytes.push(carry&255);carry>>=8;}} for(let i=0;i<value.length-1&&value[i]==="1";i++)bytes.push(0); return new Uint8Array(bytes.reverse()); }
+function decodeBase64(value: string) { const binary=atob(value); return Uint8Array.from(binary, char=>char.charCodeAt(0)); }
+async function verifyWalletSignature(walletAddress:string,message:string,signatureBase64:string){ try { const publicKey=decodeBase58(walletAddress); const signature=decodeBase64(signatureBase64); if(publicKey.length!==32||signature.length!==64)return false; const key=await crypto.subtle.importKey("raw",publicKey,{name:"Ed25519"},false,["verify"]); return await crypto.subtle.verify("Ed25519",key,signature,new TextEncoder().encode(message)); } catch { return false; } }
+async function analyzeToken(address:string){ const response=await fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${encodeURIComponent(address)}`,{headers:{accept:"application/json","user-agent":"SolPitch/1.0"}}); if(!response.ok)throw new Error(`Token data provider returned ${response.status}.`); const pairs=await response.json<DexPair[]>(); if(!Array.isArray(pairs)||pairs.length===0)return{found:false,address,tradable:false}; const pair=[...pairs].sort((a,b)=>(b.liquidity?.usd??0)-(a.liquidity?.usd??0))[0]; const token=pair.baseToken?.address===address?pair.baseToken:pair.quoteToken; const liquidity=pair.liquidity?.usd??0; const metadataCount=[token?.name,token?.symbol,pair.info?.imageUrl,pair.info?.websites?.[0]?.url,socialUrl(pair,"twitter"),socialUrl(pair,"telegram")].filter(Boolean).length; return{found:true,address,name:token?.name??"",symbol:token?.symbol??"",logoUrl:pair.info?.imageUrl??"",website:pair.info?.websites?.[0]?.url??"",xUrl:socialUrl(pair,"twitter")??"",telegramUrl:socialUrl(pair,"telegram")??"",dexScreenerUrl:pair.url??"",dexId:pair.dexId??"",pairAddress:pair.pairAddress??"",priceUsd:pair.priceUsd??"",liquidityUsd:liquidity,marketCap:pair.marketCap??pair.fdv??0,volume24h:pair.volume?.h24??0,pairCreatedAt:pair.pairCreatedAt??null,tradable:liquidity>0&&Boolean(pair.priceUsd),pairCount:pairs.length,metadataFound:metadataCount,metadataTotal:6,analysisLevel:liquidity>=10000?"strong":liquidity>0?"review":"manual"}; }
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url); const cors = corsHeaders(request, env);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    if (url.pathname === "/api/health") return json({ ok: true }, 200, cors);
+export default { async fetch(request:Request,env:Env):Promise<Response>{
+  const url=new URL(request.url); const cors=corsHeaders(request,env);
+  if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
+  if(url.pathname==="/api/health")return json({ok:true},200,cors);
+  if(url.pathname==="/api/analyze-token"&&request.method==="GET"){const address=(url.searchParams.get("address")??"").trim(); if(!SOLANA_ADDRESS.test(address))return json({error:"Enter a valid Solana contract address."},400,cors); try{return json(await analyzeToken(address),200,{...cors,"cache-control":"public, max-age=30"});}catch(error){return json({error:error instanceof Error?error.message:"Token analysis failed."},502,cors);}}
+  if(url.pathname==="/api/projects"&&request.method==="GET"){const results=await env.DB.prepare("SELECT * FROM projects ORDER BY published_at DESC LIMIT 500").all(); return json({projects:results.results},200,{...cors,"cache-control":"public, max-age=30"});}
+  if(url.pathname==="/api/submissions"&&request.method==="POST"){const input=await request.json<SubmissionInput>().catch(()=>null); if(!input)return json({error:"Invalid JSON body."},400,cors); const validationError=validateSubmission(input); if(validationError)return json({error:validationError},400,cors); if(!(await verifyTurnstile(input.turnstileToken,request,env)))return json({error:"Bot verification failed."},400,cors); const id=crypto.randomUUID(); try{await env.DB.prepare(`INSERT INTO submissions (id,name,symbol,contract_address,project_status,pitch,description,website,x_url,telegram_url,status_proof_url,submitter_email,status) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,'pending')`).bind(id,input.name.trim(),input.symbol.trim().toUpperCase(),input.contractAddress.trim(),input.projectStatus,input.pitch.trim(),input.description.trim(),input.website?.trim()||null,input.xUrl?.trim()||null,input.telegramUrl?.trim()||null,input.statusProofUrl.trim(),input.submitterEmail.trim().toLowerCase()).run();}catch(error){if(String(error).includes("UNIQUE"))return json({error:"That contract address has already been submitted."},409,cors);throw error;} return json({id,status:"pending",projectStatus:input.projectStatus},201,cors);}
 
-    if (url.pathname === "/api/analyze-token" && request.method === "GET") {
-      const address = (url.searchParams.get("address") ?? "").trim();
-      if (!SOLANA_ADDRESS.test(address)) return json({ error: "Enter a valid Solana contract address." }, 400, cors);
-      try {
-        return json(await analyzeToken(address), 200, { ...cors, "cache-control": "public, max-age=30" });
-      } catch (error) {
-        return json({ error: error instanceof Error ? error.message : "Token analysis failed." }, 502, cors);
-      }
-    }
+  if(url.pathname==="/api/claims/nonce"&&request.method==="POST"){const body=await request.json<{projectSlug?:string;walletAddress?:string}>().catch(()=>({})); if(!body.projectSlug||!body.walletAddress||!SOLANA_ADDRESS.test(body.walletAddress))return json({error:"Project and valid Phantom wallet are required."},400,cors); const project=await env.DB.prepare("SELECT id,name,symbol,claim_status FROM projects WHERE slug=?1 LIMIT 1").bind(body.projectSlug).first<Record<string,unknown>>(); if(!project)return json({error:"Project not found in the live database."},404,cors); if(project.claim_status==="verified")return json({error:"This project already has a verified owner."},409,cors); const nonce=crypto.randomUUID(); const message=`SolPitch ownership claim\nProject: ${project.name} ($${project.symbol})\nWallet: ${body.walletAddress}\nNonce: ${nonce}\nThis signature is free and cannot move funds.`; await env.DB.prepare("INSERT INTO claim_nonces (nonce,project_id,wallet_address,message,expires_at) VALUES (?1,?2,?3,?4,datetime('now','+10 minutes'))").bind(nonce,project.id,body.walletAddress,message).run(); return json({nonce,message},201,cors);}
+  if(url.pathname==="/api/claims"&&request.method==="POST"){const body=await request.json<{nonce?:string;walletAddress?:string;signature?:string;evidenceUrl?:string;submitterEmail?:string}>().catch(()=>({})); if(!body.nonce||!body.walletAddress||!body.signature)return json({error:"Signed claim details are incomplete."},400,cors); if(body.evidenceUrl&&!validUrl(body.evidenceUrl))return json({error:"Evidence URL is invalid."},400,cors); const nonce=await env.DB.prepare("SELECT * FROM claim_nonces WHERE nonce=?1 AND wallet_address=?2 AND used_at IS NULL AND expires_at>datetime('now') LIMIT 1").bind(body.nonce,body.walletAddress).first<Record<string,unknown>>(); if(!nonce)return json({error:"Claim request expired. Start again."},400,cors); if(!(await verifyWalletSignature(body.walletAddress,String(nonce.message),body.signature)))return json({error:"Phantom signature could not be verified."},400,cors); const id=crypto.randomUUID(); await env.DB.batch([env.DB.prepare("INSERT INTO claim_requests (id,project_id,wallet_address,signature,signed_message,evidence_url,submitter_email,status) VALUES (?1,?2,?3,?4,?5,?6,?7,'pending')").bind(id,nonce.project_id,body.walletAddress,body.signature,nonce.message,body.evidenceUrl?.trim()||null,body.submitterEmail?.trim().toLowerCase()||null),env.DB.prepare("UPDATE claim_nonces SET used_at=CURRENT_TIMESTAMP WHERE nonce=?1").bind(body.nonce),env.DB.prepare("UPDATE projects SET claim_status='pending',updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(nonce.project_id)]); return json({id,status:"pending"},201,cors);}
 
-    if (url.pathname === "/api/projects" && request.method === "GET") {
-      const results = await env.DB.prepare("SELECT * FROM projects ORDER BY published_at DESC LIMIT 500").all();
-      return json({ projects: results.results }, 200, { ...cors, "cache-control": "public, max-age=30" });
-    }
+  if(url.pathname==="/api/admin/login"&&request.method==="POST"){const body=await request.json<{password?:string}>().catch(()=>({})); if(!body.password||!secureCompare(body.password,env.ADMIN_PASSWORD))return json({error:"Invalid credentials."},401,cors); const token=crypto.randomUUID()+crypto.randomUUID(); await env.DB.prepare("INSERT INTO admin_sessions (token_hash,expires_at) VALUES (?1,datetime('now','+8 hours'))").bind(await sha256(token)).run(); return json({ok:true},200,{...cors,"set-cookie":`${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${SESSION_TTL_SECONDS}`});}
+  if(url.pathname==="/api/admin/logout"&&request.method==="POST"){const token=parseCookies(request)[SESSION_COOKIE]; if(token)await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash=?1").bind(await sha256(token)).run(); return json({ok:true},200,{...cors,"set-cookie":`${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0`});}
+  if(url.pathname==="/api/admin/session"&&request.method==="GET")return json({authenticated:await requireAdmin(request,env)},200,cors);
+  if(url.pathname==="/api/admin/submissions"&&request.method==="GET"){if(!(await requireAdmin(request,env)))return json({error:"Unauthorized."},401,cors); const status=url.searchParams.get("status")??"pending"; const results=await env.DB.prepare("SELECT * FROM submissions WHERE status=?1 ORDER BY created_at DESC LIMIT 200").bind(status).all(); return json({submissions:results.results},200,cors);}
+  if(url.pathname==="/api/admin/claims"&&request.method==="GET"){if(!(await requireAdmin(request,env)))return json({error:"Unauthorized."},401,cors); const results=await env.DB.prepare("SELECT c.*,p.name AS project_name,p.symbol AS project_symbol,p.slug AS project_slug FROM claim_requests c JOIN projects p ON p.id=c.project_id WHERE c.status='pending' ORDER BY c.created_at DESC LIMIT 200").all(); return json({claims:results.results},200,cors);}
 
-    if (url.pathname === "/api/submissions" && request.method === "POST") {
-      const input = await request.json<SubmissionInput>().catch(() => null);
-      if (!input) return json({ error: "Invalid JSON body." }, 400, cors);
-      const validationError = validateSubmission(input); if (validationError) return json({ error: validationError }, 400, cors);
-      if (!(await verifyTurnstile(input.turnstileToken, request, env))) return json({ error: "Bot verification failed." }, 400, cors);
-      const id = crypto.randomUUID();
-      try {
-        await env.DB.prepare(`INSERT INTO submissions (id,name,symbol,contract_address,project_status,pitch,description,website,x_url,telegram_url,status_proof_url,submitter_email,status) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,'pending')`).bind(
-          id, input.name.trim(), input.symbol.trim().toUpperCase(), input.contractAddress.trim(), input.projectStatus,
-          input.pitch.trim(), input.description.trim(), input.website?.trim() || null, input.xUrl?.trim() || null,
-          input.telegramUrl?.trim() || null, input.statusProofUrl.trim(), input.submitterEmail.trim().toLowerCase(),
-        ).run();
-      } catch (error) {
-        if (String(error).includes("UNIQUE")) return json({ error: "That contract address has already been submitted." }, 409, cors);
-        throw error;
-      }
-      return json({ id, status: "pending", projectStatus: input.projectStatus }, 201, cors);
-    }
-
-    if (url.pathname === "/api/admin/login" && request.method === "POST") {
-      const body = await request.json<{ password?: string }>().catch(() => ({}));
-      if (!body.password || !secureCompare(body.password, env.ADMIN_PASSWORD)) return json({ error: "Invalid credentials." }, 401, cors);
-      const token = crypto.randomUUID() + crypto.randomUUID();
-      await env.DB.prepare("INSERT INTO admin_sessions (token_hash, expires_at) VALUES (?1, datetime('now', '+8 hours'))").bind(await sha256(token)).run();
-      return json({ ok: true }, 200, { ...cors, "set-cookie": `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${SESSION_TTL_SECONDS}` });
-    }
-    if (url.pathname === "/api/admin/logout" && request.method === "POST") {
-      const token = parseCookies(request)[SESSION_COOKIE]; if (token) await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash = ?1").bind(await sha256(token)).run();
-      return json({ ok: true }, 200, { ...cors, "set-cookie": `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0` });
-    }
-    if (url.pathname === "/api/admin/session" && request.method === "GET") return json({ authenticated: await requireAdmin(request, env) }, 200, cors);
-    if (url.pathname === "/api/admin/submissions" && request.method === "GET") {
-      if (!(await requireAdmin(request, env))) return json({ error: "Unauthorized." }, 401, cors);
-      const status = url.searchParams.get("status") ?? "pending";
-      const results = await env.DB.prepare("SELECT * FROM submissions WHERE status = ?1 ORDER BY created_at DESC LIMIT 200").bind(status).all();
-      return json({ submissions: results.results }, 200, cors);
-    }
-
-    const reviewMatch = url.pathname.match(/^\/api\/admin\/submissions\/([^/]+)$/);
-    if (reviewMatch && request.method === "PATCH") {
-      if (!(await requireAdmin(request, env))) return json({ error: "Unauthorized." }, 401, cors);
-      const body = await request.json<{ status?: "approved" | "rejected"; reviewerNotes?: string; addedToSwap?: boolean; promoted?: boolean; logoUrl?: string }>().catch(() => ({}));
-      if (!body.status || !["approved", "rejected"].includes(body.status)) return json({ error: "Invalid review status." }, 400, cors);
-      const submission = await env.DB.prepare("SELECT * FROM submissions WHERE id = ?1 LIMIT 1").bind(reviewMatch[1]).first<Record<string, unknown>>();
-      if (!submission) return json({ error: "Submission not found." }, 404, cors);
-      if (body.status === "approved") {
-        const projectId = crypto.randomUUID();
-        await env.DB.batch([
-          env.DB.prepare(`INSERT INTO projects (id,slug,name,symbol,contract_address,project_status,claim_status,pitch,description,website,x_url,telegram_url,logo_url,added_to_swap,promoted,votes) VALUES (?1,?2,?3,?4,?5,?6,'unclaimed',?7,?8,?9,?10,?11,?12,?13,?14,0) ON CONFLICT(contract_address) DO UPDATE SET name=excluded.name,symbol=excluded.symbol,project_status=excluded.project_status,pitch=excluded.pitch,description=excluded.description,website=excluded.website,x_url=excluded.x_url,telegram_url=excluded.telegram_url,logo_url=excluded.logo_url,added_to_swap=excluded.added_to_swap,promoted=excluded.promoted,updated_at=CURRENT_TIMESTAMP`).bind(
-            projectId, slugify(String(submission.name), String(submission.symbol)), submission.name, submission.symbol, submission.contract_address, submission.project_status, submission.pitch, submission.description, submission.website, submission.x_url, submission.telegram_url, body.logoUrl?.trim() || null, body.addedToSwap ? 1 : 0, body.promoted ? 1 : 0
-          ),
-          env.DB.prepare("UPDATE submissions SET status='approved', reviewer_notes=?1, reviewed_at=CURRENT_TIMESTAMP WHERE id=?2").bind(body.reviewerNotes?.trim() || null, reviewMatch[1])
-        ]);
-      } else {
-        await env.DB.prepare("UPDATE submissions SET status='rejected', reviewer_notes=?1, reviewed_at=CURRENT_TIMESTAMP WHERE id=?2").bind(body.reviewerNotes?.trim() || null, reviewMatch[1]).run();
-      }
-      return json({ ok: true }, 200, cors);
-    }
-
-    return json({ error: "Not found." }, 404, cors);
-  },
-};
+  const reviewMatch=url.pathname.match(/^\/api\/admin\/submissions\/([^/]+)$/); if(reviewMatch&&request.method==="PATCH"){if(!(await requireAdmin(request,env)))return json({error:"Unauthorized."},401,cors); const body=await request.json<{status?:"approved"|"rejected";reviewerNotes?:string;addedToSwap?:boolean;promoted?:boolean;logoUrl?:string}>().catch(()=>({})); if(!body.status||!["approved","rejected"].includes(body.status))return json({error:"Invalid review status."},400,cors); const submission=await env.DB.prepare("SELECT * FROM submissions WHERE id=?1 LIMIT 1").bind(reviewMatch[1]).first<Record<string,unknown>>(); if(!submission)return json({error:"Submission not found."},404,cors); if(body.status==="approved"){const projectId=crypto.randomUUID(); await env.DB.batch([env.DB.prepare(`INSERT INTO projects (id,slug,name,symbol,contract_address,project_status,claim_status,pitch,description,website,x_url,telegram_url,logo_url,added_to_swap,promoted,votes) VALUES (?1,?2,?3,?4,?5,?6,'unclaimed',?7,?8,?9,?10,?11,?12,?13,?14,0) ON CONFLICT(contract_address) DO UPDATE SET name=excluded.name,symbol=excluded.symbol,project_status=excluded.project_status,pitch=excluded.pitch,description=excluded.description,website=excluded.website,x_url=excluded.x_url,telegram_url=excluded.telegram_url,logo_url=excluded.logo_url,added_to_swap=excluded.added_to_swap,promoted=excluded.promoted,updated_at=CURRENT_TIMESTAMP`).bind(projectId,slugify(String(submission.name),String(submission.symbol)),submission.name,submission.symbol,submission.contract_address,submission.project_status,submission.pitch,submission.description,submission.website,submission.x_url,submission.telegram_url,body.logoUrl?.trim()||null,body.addedToSwap?1:0,body.promoted?1:0),env.DB.prepare("UPDATE submissions SET status='approved',reviewer_notes=?1,reviewed_at=CURRENT_TIMESTAMP WHERE id=?2").bind(body.reviewerNotes?.trim()||null,reviewMatch[1])]);}else await env.DB.prepare("UPDATE submissions SET status='rejected',reviewer_notes=?1,reviewed_at=CURRENT_TIMESTAMP WHERE id=?2").bind(body.reviewerNotes?.trim()||null,reviewMatch[1]).run(); return json({ok:true},200,cors);}
+  const claimReview=url.pathname.match(/^\/api\/admin\/claims\/([^/]+)$/); if(claimReview&&request.method==="PATCH"){if(!(await requireAdmin(request,env)))return json({error:"Unauthorized."},401,cors); const body=await request.json<{status?:"approved"|"rejected";reviewerNotes?:string}>().catch(()=>({})); if(!body.status||!["approved","rejected"].includes(body.status))return json({error:"Invalid claim decision."},400,cors); const claim=await env.DB.prepare("SELECT * FROM claim_requests WHERE id=?1 AND status='pending' LIMIT 1").bind(claimReview[1]).first<Record<string,unknown>>(); if(!claim)return json({error:"Pending claim not found."},404,cors); if(body.status==="approved")await env.DB.batch([env.DB.prepare("UPDATE claim_requests SET status='approved',reviewer_notes=?1,reviewed_at=CURRENT_TIMESTAMP WHERE id=?2").bind(body.reviewerNotes?.trim()||null,claimReview[1]),env.DB.prepare("INSERT INTO project_owners (project_id,wallet_address,claim_request_id) VALUES (?1,?2,?3) ON CONFLICT(project_id) DO UPDATE SET wallet_address=excluded.wallet_address,claim_request_id=excluded.claim_request_id,verified_at=CURRENT_TIMESTAMP").bind(claim.project_id,claim.wallet_address,claimReview[1]),env.DB.prepare("UPDATE projects SET claim_status='verified',updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(claim.project_id)]); else await env.DB.batch([env.DB.prepare("UPDATE claim_requests SET status='rejected',reviewer_notes=?1,reviewed_at=CURRENT_TIMESTAMP WHERE id=?2").bind(body.reviewerNotes?.trim()||null,claimReview[1]),env.DB.prepare("UPDATE projects SET claim_status='unclaimed',updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(claim.project_id)]); return json({ok:true},200,cors);}
+  return json({error:"Not found."},404,cors);
+}};
