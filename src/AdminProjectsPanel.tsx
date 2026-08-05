@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
-import { adminLogin, deleteAdminProject, getAdminProjects, getAdminSession, resetProjectVotes, updateAdminProject } from "./api";
-import type { AdminProject } from "./api";
+import { adminLogin, getAdminSession } from "./api";
+import { deleteAdminProject, getAdminProjects, resetProjectVotes, updateAdminProject } from "./adminProjectApi";
+import type { AdminProject } from "./adminProjectApi";
 
 export default function AdminProjectsPanel({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
   const [authenticated, setAuthenticated] = useState(false);
