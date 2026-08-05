@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import ProductionHome from "./ProductionHome";
 import { projects as fallbackProjects } from "./data";
-import { createVoteNonce, getActivity, getPublishedProjects, submitVote, type ActivityEvent } from "./api";
+import { analyzeToken, createVoteNonce, getActivity, getPublishedProjects, submitVote, type ActivityEvent } from "./api";
 import { AdminPanel, SubmitProjectPanel } from "./WorkflowPanels";
 import { AdminClaimsPanel, ClaimProjectPanel } from "./ClaimPanels";
 import AdminProjectsPanel from "./AdminProjectsPanel";
@@ -13,6 +13,7 @@ type Panel = "submit" | "admin" | "claims" | "projects" | null;
 type PhantomProvider = { isPhantom?: boolean; publicKey?: { toString(): string }; connect(): Promise<{ publicKey: { toString(): string } }>; signMessage(message: Uint8Array, display?: string): Promise<{ signature: Uint8Array }> };
 declare global { interface Window { solana?: PhantomProvider } }
 function bytesToBase64(bytes: Uint8Array) { let binary = ""; bytes.forEach(byte => { binary += String.fromCharCode(byte); }); return btoa(binary); }
+function money(value?: number) { return value ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2 }).format(value) : "Unavailable"; }
 
 export default function OperatingApp() {
   const [panel, setPanel] = useState<Panel>(null);
@@ -23,10 +24,48 @@ export default function OperatingApp() {
   const [activityOpen, setActivityOpen] = useState(true);
   const [voteBusy, setVoteBusy] = useState(false);
 
-  const refreshProjects = useCallback(async () => {
-    try { const published = await getPublishedProjects(); if (published.length > 0) { fallbackProjects.splice(0, fallbackProjects.length, ...published); setSource("database"); setRevision(value => value + 1); } }
-    catch { setSource("preview"); }
+  const enrichPreviewProjects = useCallback(async () => {
+    const enriched = await Promise.all(fallbackProjects.map(async project => {
+      try {
+        const metadata = await analyzeToken(project.contractAddress);
+        return {
+          ...project,
+          name: metadata.name || project.name,
+          symbol: metadata.symbol || project.symbol,
+          logoURI: metadata.logoUrl || project.logoURI,
+          pitch: metadata.pitch || "No public project description was found. This unclaimed listing contains token and market information only.",
+          description: metadata.description || "No public project description was found for this token. The official project team can claim this page and provide verified project information.",
+          marketCap: money(metadata.marketCap),
+          liquidity: money(metadata.liquidityUsd),
+          volume24h: money(metadata.volume24h),
+          links: {
+            website: metadata.website || project.links.website,
+            x: metadata.xUrl || project.links.x,
+            telegram: metadata.telegramUrl || project.links.telegram,
+          },
+        } satisfies Project;
+      } catch { return project; }
+    }));
+    fallbackProjects.splice(0, fallbackProjects.length, ...enriched);
+    setRevision(value => value + 1);
   }, []);
+
+  const refreshProjects = useCallback(async () => {
+    try {
+      const published = await getPublishedProjects();
+      if (published.length > 0) {
+        fallbackProjects.splice(0, fallbackProjects.length, ...published);
+        setSource("database");
+        setRevision(value => value + 1);
+      } else {
+        setSource("preview");
+        await enrichPreviewProjects();
+      }
+    } catch {
+      setSource("preview");
+      await enrichPreviewProjects();
+    }
+  }, [enrichPreviewProjects]);
   const refreshActivity = useCallback(async () => { try { setActivity(await getActivity()); } catch { setActivity([]); } }, []);
   useEffect(() => { void refreshProjects(); void refreshActivity(); }, [refreshProjects, refreshActivity]);
 
