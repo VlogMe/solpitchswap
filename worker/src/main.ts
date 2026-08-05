@@ -32,6 +32,18 @@ function withCors(response: Response, cors: HeadersInit) {
   });
 }
 
+function workerError(error: unknown, cors: HeadersInit) {
+  const message = error instanceof Error ? error.message : String(error || "Unknown Worker error");
+  return new Response(JSON.stringify({ error: `Server error: ${message}` }), {
+    status: 500,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      ...cors,
+    },
+  });
+}
+
 async function serveLogo() {
   const upstream = await fetch("https://solpitch.net/favicon.png", {
     cf: { cacheEverything: true, cacheTtl: 86400 },
@@ -47,12 +59,23 @@ async function serveLogo() {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === "/logo.png" && request.method === "GET") return serveLogo();
-
     const cors = corsHeaders(request, env);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    const swapResponse = await handleSwapRequest(request, env, cors);
-    if (swapResponse) return swapResponse;
-    return withCors(await listingsWorker.fetch(request, env), cors);
+
+    try {
+      if (url.pathname === "/logo.png" && request.method === "GET") return serveLogo();
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+
+      const swapResponse = await handleSwapRequest(request, env, cors);
+      if (swapResponse) return withCors(swapResponse, cors);
+
+      return withCors(await listingsWorker.fetch(request, env), cors);
+    } catch (error) {
+      console.error("Unhandled SolPitch Worker error", {
+        method: request.method,
+        pathname: url.pathname,
+        error,
+      });
+      return workerError(error, cors);
+    }
   },
 };
