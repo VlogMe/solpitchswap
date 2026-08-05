@@ -3,6 +3,20 @@ interface SwapEnv { SOLANA_RPC_URL?: string; JUPITER_API_URL?: string }
 const SOLANA_ADDRESS=/^[1-9A-HJ-NP-Za-km-z]{32,64}$/;
 function json(data:unknown,status=200,headers:HeadersInit={}){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8",...headers}})}
 async function upstreamJson(url:string,init:RequestInit={}){const response=await fetch(url,{...init,headers:{accept:"application/json",...(init.headers??{})},signal:AbortSignal.timeout(12000)});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(String((body as {error?:string}).error||`Upstream request failed (${response.status})`));return body;}
+async function tryJson(url:string){try{return await upstreamJson(url) as Record<string,unknown>}catch{return null}}
+
+async function lookupToken(mint:string){
+ const jupiter=await tryJson(`https://tokens.jup.ag/token/${encodeURIComponent(mint)}`);
+ if(jupiter?.symbol){return {symbol:String(jupiter.symbol),name:String(jupiter.name??jupiter.symbol),mint:String(jupiter.address??mint),decimals:Number(jupiter.decimals??6),logoURI:String(jupiter.logoURI??"")||undefined}}
+ const dex=await tryJson(`https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mint)}`) as {pairs?:Array<Record<string,unknown>>}|null;
+ const pair=Array.isArray(dex?.pairs)?dex!.pairs![0]:undefined;
+ const base=(pair?.baseToken??{}) as Record<string,unknown>;const quote=(pair?.quoteToken??{}) as Record<string,unknown>;
+ const token=String(base.address??"")===mint?base:String(quote.address??"")===mint?quote:base;
+ if(token.symbol){return {symbol:String(token.symbol),name:String(token.name??token.symbol),mint,decimals:6,logoURI:undefined}}
+ const pump=await tryJson(`https://frontend-api.pump.fun/coins/${encodeURIComponent(mint)}`);
+ if(pump?.symbol){return {symbol:String(pump.symbol),name:String(pump.name??pump.symbol),mint,decimals:6,logoURI:String(pump.image_uri??"")||undefined}}
+ throw new Error("Token metadata could not be loaded. Confirm the CA is live and tradable.");
+}
 
 export async function handleSwapRequest(request:Request,env:SwapEnv,cors:HeadersInit):Promise<Response|null>{
  const url=new URL(request.url);const jupiter=(env.JUPITER_API_URL||"https://lite-api.jup.ag/swap/v1").replace(/\/$/,"");
@@ -15,8 +29,7 @@ export async function handleSwapRequest(request:Request,env:SwapEnv,cors:Headers
   }
   if(url.pathname==="/api/swap/token"&&request.method==="GET"){
    const mint=(url.searchParams.get("mint")??"").trim();if(!SOLANA_ADDRESS.test(mint))return json({error:"Enter a valid Solana contract address."},400,cors);
-   const token=await upstreamJson(`https://tokens.jup.ag/token/${encodeURIComponent(mint)}`) as Record<string,unknown>;
-   return json({symbol:String(token.symbol??"TOKEN"),name:String(token.name??token.symbol??"Solana Token"),mint:String(token.address??mint),decimals:Number(token.decimals??6),logoURI:String(token.logoURI??"")||undefined},200,{...cors,"cache-control":"public, max-age=300"});
+   return json(await lookupToken(mint),200,{...cors,"cache-control":"public, max-age=300"});
   }
   if(url.pathname==="/api/swap/build"&&request.method==="POST"){
    const body=await request.json<{quoteResponse?:unknown;userPublicKey?:string}>().catch(()=>({}));if(!body.quoteResponse||!body.userPublicKey||!SOLANA_ADDRESS.test(body.userPublicKey))return json({error:"Quote and Phantom wallet are required."},400,cors);
