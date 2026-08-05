@@ -6,13 +6,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> { co
 
 export type TokenAnalysis = { found:boolean; address:string; tradable:boolean; name?:string; symbol?:string; logoUrl?:string; website?:string; xUrl?:string; telegramUrl?:string; dexScreenerUrl?:string; dexId?:string; pairAddress?:string; priceUsd?:string; liquidityUsd?:number; marketCap?:number; volume24h?:number; metadataFound?:number; metadataTotal?:number; analysisLevel?:"strong"|"review"|"manual" };
 export type ClaimRequest = { id:string; projectName:string; projectSymbol:string; projectSlug:string; walletAddress:string; evidenceUrl:string; submitterEmail:string; createdAt:string };
+export type ActivityEvent = { id:string; projectId?:string; eventType:string; eventText:string; createdAt:string; slug?:string; name?:string; symbol?:string; logoUrl?:string };
 export type SubmissionPayload = { name:string; symbol:string; contractAddress:string; projectStatus:ProjectStatus; pitch:string; description:string; website?:string; xUrl?:string; telegramUrl?:string; logoUrl?:string; statusProofUrl:string; submitterEmail:string; turnstileToken?:string };
 
 export async function analyzeToken(address:string){return request<TokenAnalysis>(`/api/analyze-token?address=${encodeURIComponent(address)}`);}
 export async function getPublishedProjects(){const result=await request<{projects:Record<string,unknown>[]}>('/api/projects');return result.projects.map(mapProjectRow);}
+export async function getActivity(){const result=await request<{events:Record<string,unknown>[]}>('/api/activity');return result.events.map(row=>({id:String(row.id),projectId:String(row.project_id??'')||undefined,eventType:String(row.event_type),eventText:String(row.event_text),createdAt:String(row.created_at),slug:String(row.slug??'')||undefined,name:String(row.name??'')||undefined,symbol:String(row.symbol??'')||undefined,logoUrl:String(row.logo_url??'')||undefined}));}
 export async function submitCoin(payload:SubmissionPayload){return request<{id:string;status:"pending";projectStatus:ProjectStatus}>('/api/submissions',{method:'POST',body:JSON.stringify(payload)});}
 export async function createClaimNonce(projectSlug:string,walletAddress:string){return request<{nonce:string;message:string}>('/api/claims/nonce',{method:'POST',body:JSON.stringify({projectSlug,walletAddress})});}
 export async function submitClaim(payload:{nonce:string;walletAddress:string;signature:string;evidenceUrl?:string;submitterEmail?:string}){return request<{id:string;status:"pending"}>('/api/claims',{method:'POST',body:JSON.stringify(payload)});}
+export async function createVoteNonce(projectSlug:string,walletAddress:string){return request<{nonce:string;message:string;weekKey:string}>('/api/votes/nonce',{method:'POST',body:JSON.stringify({projectSlug,walletAddress})});}
+export async function submitVote(payload:{nonce:string;walletAddress:string;signature:string}){return request<{ok:true;votes:number;weekKey:string}>('/api/votes',{method:'POST',body:JSON.stringify(payload)});}
 export async function adminLogin(password:string){return request<{ok:true}>('/api/admin/login',{method:'POST',body:JSON.stringify({password})});}
 export async function adminLogout(){return request<{ok:true}>('/api/admin/logout',{method:'POST',body:'{}'});}
 export async function getAdminSession(){return request<{authenticated:boolean}>('/api/admin/session');}
