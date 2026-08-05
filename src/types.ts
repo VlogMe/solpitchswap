@@ -1,14 +1,17 @@
 export type ProjectBadge = "Verified" | "Featured" | "Trending" | "Community Listed" | "Owner Verified" | "Founding Project";
 export type ProjectStatus = "graduated" | "bonding" | "launched" | "presale" | "upcoming";
 export type ClaimStatus = "unclaimed" | "pending" | "verified" | "disputed";
+export type ProjectCategory = "Memecoin" | "AI" | "Gaming" | "DeFi" | "Infrastructure" | "Utility" | "NFT" | "RWA" | "Other";
 
 export type Project = {
+  id?: string;
   slug: string;
   name: string;
   symbol: string;
   contractAddress: string;
   projectStatus: ProjectStatus;
   claimStatus: ClaimStatus;
+  category: ProjectCategory;
   pitch: string;
   description: string;
   badges: ProjectBadge[];
@@ -18,12 +21,14 @@ export type Project = {
   volume24h: string;
   holders: string;
   votes: number;
+  addedToSwap: boolean;
+  promoted: boolean;
   listedLabel: string;
+  publishedAt?: string;
   links: { website?: string; x?: string; telegram?: string; discord?: string };
 };
 
 export type SubmissionStatus = "pending" | "approved" | "rejected";
-
 export type CoinSubmission = {
   id: string;
   submittedAt: string;
