@@ -17,26 +17,28 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout fresh listings branch
+      - name: Checkout current production source
         uses: actions/checkout@v4
         with:
           ref: agent/fresh-solpitch-listings
+          fetch-depth: 1
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
-      - name: Build production preview
+      - name: Build fresh production preview
         run: npm run build
 
-      - name: Publish dist to gh-pages
+      - name: Publish fresh dist to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
           force_orphan: true
+          enable_jekyll: false
