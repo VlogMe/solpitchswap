@@ -1,4 +1,4 @@
-import baseWorker from "./index";
+import baseWorker from "./router";
 
 interface Env {
   DB: D1Database;
@@ -6,6 +6,34 @@ interface Env {
   TURNSTILE_SECRET?: string;
   ALLOWED_ORIGIN: string;
 }
+
+type MetadataProfile = {
+  chainId?: string;
+  tokenAddress?: string;
+  icon?: string;
+  description?: string;
+  links?: Array<{ type?: string; label?: string; url?: string }>;
+};
+
+type PumpMetadata = {
+  name?: string;
+  symbol?: string;
+  description?: string;
+  image_uri?: string;
+  metadata_uri?: string;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+};
+
+type OffchainMetadata = {
+  name?: string;
+  symbol?: string;
+  description?: string;
+  image?: string;
+  external_url?: string;
+  properties?: { files?: Array<{ uri?: string }> };
+};
 
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,64}$/;
@@ -24,7 +52,7 @@ function corsHeaders(request: Request, env: Env): HeadersInit {
     "access-control-allow-origin": origin,
     "access-control-allow-credentials": "true",
     "access-control-allow-headers": "content-type",
-    "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
     vary: "Origin",
   };
 }
@@ -75,10 +103,87 @@ function weekKey(date = new Date()) {
   return `${target.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
+function firstLink(profile: MetadataProfile | undefined, matcher: RegExp) {
+  return profile?.links?.find(link => matcher.test(`${link.type ?? ""} ${link.label ?? ""} ${link.url ?? ""}`))?.url ?? "";
+}
+
+async function safeJson<T>(url: string): Promise<T | null> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "application/json", "user-agent": "SolPitch/1.0" },
+      signal: AbortSignal.timeout(4500),
+    });
+    if (!response.ok) return null;
+    return await response.json<T>();
+  } catch {
+    return null;
+  }
+}
+
+async function enrichToken(address: string, base: Record<string, unknown>) {
+  const [profiles, pump] = await Promise.all([
+    safeJson<MetadataProfile[]>("https://api.dexscreener.com/token-profiles/latest/v1"),
+    safeJson<PumpMetadata>(`https://frontend-api.pump.fun/coins/${encodeURIComponent(address)}`),
+  ]);
+
+  const profile = Array.isArray(profiles)
+    ? profiles.find(item => item.chainId === "solana" && item.tokenAddress === address)
+    : undefined;
+
+  let offchain: OffchainMetadata | null = null;
+  if (pump?.metadata_uri && /^https?:\/\//.test(pump.metadata_uri)) {
+    offchain = await safeJson<OffchainMetadata>(pump.metadata_uri);
+  }
+
+  const description = String(
+    offchain?.description || pump?.description || profile?.description || "",
+  ).trim();
+  const name = String(offchain?.name || pump?.name || base.name || "").trim();
+  const symbol = String(offchain?.symbol || pump?.symbol || base.symbol || "").trim();
+  const logoUrl = String(
+    offchain?.image || offchain?.properties?.files?.[0]?.uri || pump?.image_uri || profile?.icon || base.logoUrl || "",
+  ).trim();
+  const website = String(
+    offchain?.external_url || pump?.website || firstLink(profile, /website|site/i) || base.website || "",
+  ).trim();
+  const xUrl = String(pump?.twitter || firstLink(profile, /twitter|\bx\b/i) || base.xUrl || "").trim();
+  const telegramUrl = String(pump?.telegram || firstLink(profile, /telegram/i) || base.telegramUrl || "").trim();
+  const metadataSource = offchain?.description
+    ? "On-chain metadata URI"
+    : pump?.description
+      ? "Pump.fun metadata"
+      : profile?.description
+        ? "DexScreener profile"
+        : "Trading metadata only";
+
+  return {
+    ...base,
+    name,
+    symbol,
+    logoUrl,
+    website,
+    xUrl,
+    telegramUrl,
+    description,
+    pitch: description ? description.replace(/\s+/g, " ").slice(0, 300) : "",
+    metadataSource,
+    descriptionFound: Boolean(description),
+  };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const cors = corsHeaders(request, env);
+
+    if (url.pathname === "/api/analyze-token" && request.method === "GET") {
+      const address = (url.searchParams.get("address") ?? "").trim();
+      if (!SOLANA_ADDRESS.test(address)) return json({ error: "Enter a valid Solana contract address." }, 400, cors);
+      const baseResponse = await baseWorker.fetch(request, env);
+      const base = await baseResponse.json<Record<string, unknown>>().catch(() => ({}));
+      if (!baseResponse.ok) return json(base, baseResponse.status, cors);
+      return json(await enrichToken(address, base), 200, { ...cors, "cache-control": "public, max-age=60" });
+    }
 
     if (url.pathname === "/api/activity" && request.method === "GET") {
       const events = await env.DB.prepare(
