@@ -32,8 +32,23 @@ function withCors(response: Response, cors: HeadersInit) {
   });
 }
 
+async function serveLogo() {
+  const upstream = await fetch("https://solpitch.net/favicon.png", {
+    cf: { cacheEverything: true, cacheTtl: 86400 },
+  });
+  if (!upstream.ok) return new Response("Logo unavailable", { status: 502 });
+  const headers = new Headers(upstream.headers);
+  headers.set("content-type", "image/png");
+  headers.set("cache-control", "public, max-age=86400");
+  headers.set("content-disposition", "inline; filename=logo.png");
+  return new Response(upstream.body, { status: 200, headers });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === "/logo.png" && request.method === "GET") return serveLogo();
+
     const cors = corsHeaders(request, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     const swapResponse = await handleSwapRequest(request, env, cors);
