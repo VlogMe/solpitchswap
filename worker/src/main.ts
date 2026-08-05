@@ -22,12 +22,22 @@ function corsHeaders(request: Request, env: Env): HeadersInit {
   };
 }
 
+function withCors(response: Response, cors: HeadersInit) {
+  const headers = new Headers(response.headers);
+  Object.entries(cors).forEach(([key, value]) => headers.set(key, String(value)));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(request, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     const swapResponse = await handleSwapRequest(request, env, cors);
     if (swapResponse) return swapResponse;
-    return listingsWorker.fetch(request, env);
+    return withCors(await listingsWorker.fetch(request, env), cors);
   },
 };
