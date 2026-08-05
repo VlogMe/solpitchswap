@@ -15,7 +15,7 @@ async function lookupToken(mint:string){
  if(token.symbol){return {symbol:String(token.symbol),name:String(token.name??token.symbol),mint,decimals:6,logoURI:undefined}}
  const pump=await tryJson(`https://frontend-api.pump.fun/coins/${encodeURIComponent(mint)}`);
  if(pump?.symbol){return {symbol:String(pump.symbol),name:String(pump.name??pump.symbol),mint,decimals:6,logoURI:String(pump.image_uri??"")||undefined}}
- throw new Error("Token metadata could not be loaded. Confirm the CA is live and tradable.");
+ throw new Error("Token metadata could not be loaded. Confirm the CA is live/bonded and tradable with sufficient liquidity for a Jupiter route. Jupiter has no fixed dollar minimum; routability depends on pool depth and price impact.");
 }
 
 export async function handleSwapRequest(request:Request,env:SwapEnv,cors:HeadersInit):Promise<Response|null>{
