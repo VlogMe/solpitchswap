@@ -11,15 +11,15 @@ interface Env {
   JUPITER_API_URL?: string;
 }
 
-const WIF_PROJECT = {
-  id: "solpitch-wif-dogwifhat",
-  slug: "dogwifhat-wif",
+const WIF_SUBMISSION = {
+  id: "solpitch-wif-submission",
   name: "dogwifhat",
   symbol: "WIF",
   contractAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
   pitch: "Literally a dog wif a hat. One of Solana's best-known community memecoins.",
   description: "[Category: Memecoin] dogwifhat (WIF) is a Solana memecoin built around the viral image of a dog wearing a knitted hat. The project is community-driven and has become one of the most widely recognized memecoins in the Solana ecosystem.",
   website: "https://dogwifcoin.org/",
+  statusProofUrl: "https://dexscreener.com/solana/EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
 };
 
 function corsHeaders(request: Request, env: Env): HeadersInit {
@@ -68,30 +68,21 @@ async function serveLogo() {
   return new Response(upstream.body, { status: 200, headers });
 }
 
-async function publishWif(env: Env) {
+async function ensureWifPendingSubmission(env: Env) {
   await env.DB.prepare(`
-    INSERT INTO projects (
-      id, slug, name, symbol, contract_address, project_status, claim_status,
-      pitch, description, website, added_to_swap, promoted, votes
-    ) VALUES (?1, ?2, ?3, ?4, ?5, 'graduated', 'unclaimed', ?6, ?7, ?8, 1, 0, 0)
-    ON CONFLICT(contract_address) DO UPDATE SET
-      name=excluded.name,
-      symbol=excluded.symbol,
-      project_status=excluded.project_status,
-      pitch=excluded.pitch,
-      description=excluded.description,
-      website=excluded.website,
-      added_to_swap=1,
-      updated_at=CURRENT_TIMESTAMP
+    INSERT OR IGNORE INTO submissions (
+      id, name, symbol, contract_address, project_status, pitch, description,
+      website, status_proof_url, submitter_email, status
+    ) VALUES (?1, ?2, ?3, ?4, 'graduated', ?5, ?6, ?7, ?8, 'system@solpitch.local', 'pending')
   `).bind(
-    WIF_PROJECT.id,
-    WIF_PROJECT.slug,
-    WIF_PROJECT.name,
-    WIF_PROJECT.symbol,
-    WIF_PROJECT.contractAddress,
-    WIF_PROJECT.pitch,
-    WIF_PROJECT.description,
-    WIF_PROJECT.website,
+    WIF_SUBMISSION.id,
+    WIF_SUBMISSION.name,
+    WIF_SUBMISSION.symbol,
+    WIF_SUBMISSION.contractAddress,
+    WIF_SUBMISSION.pitch,
+    WIF_SUBMISSION.description,
+    WIF_SUBMISSION.website,
+    WIF_SUBMISSION.statusProofUrl,
   ).run();
 }
 
@@ -104,16 +95,12 @@ export default {
       if (url.pathname === "/logo.png" && request.method === "GET") return serveLogo();
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
-      if (url.pathname === "/api/internal/add-wif-20260806" && request.method === "GET") {
-        await publishWif(env);
-        return new Response(JSON.stringify({ ok: true, slug: WIF_PROJECT.slug, contractAddress: WIF_PROJECT.contractAddress }), {
-          status: 200,
-          headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
-        });
-      }
-
       const swapResponse = await handleSwapRequest(request, env, cors);
       if (swapResponse) return withCors(swapResponse, cors);
+
+      if (url.pathname === "/api/admin/submissions" && request.method === "GET") {
+        await ensureWifPendingSubmission(env);
+      }
 
       if (url.pathname.startsWith("/api/")) {
         return withCors(await listingsWorker.fetch(request, env), cors);
