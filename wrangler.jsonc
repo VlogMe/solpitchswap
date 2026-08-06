@@ -3,6 +3,12 @@
   "name": "solpitchswap",
   "main": "worker/src/main.ts",
   "compatibility_date": "2026-07-24",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/logo.png"]
+  },
   "d1_databases": [
     {
       "binding": "DB",
