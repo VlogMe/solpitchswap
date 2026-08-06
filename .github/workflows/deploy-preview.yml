@@ -1,26 +1,26 @@
-name: Deploy Fresh SolPitch Preview
+name: Deploy SolPitch Network
 
 on:
   push:
     branches:
-      - agent/fresh-solpitch-listings
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: solpitch-preview
+  group: solpitch-pages
   cancel-in-progress: true
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout current production source
+      - name: Checkout production source
         uses: actions/checkout@v4
         with:
-          ref: agent/fresh-solpitch-listings
+          ref: main
           fetch-depth: 1
 
       - name: Setup Node
@@ -31,10 +31,10 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Build fresh production preview
+      - name: Build SolPitch Network
         run: npm run build
 
-      - name: Publish fresh dist to gh-pages
+      - name: Publish dist to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
