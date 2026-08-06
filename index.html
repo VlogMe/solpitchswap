@@ -106,15 +106,22 @@
           const target = document.querySelector('.project-detail, .project-feed');
           if (!target) return;
 
-          const existing = target.querySelector(':scope > .solpitch-site-footer');
-          if (existing) return;
+          let footer = target.querySelector(':scope > .solpitch-site-footer');
 
-          document.querySelectorAll('.solpitch-site-footer').forEach((footer) => footer.remove());
+          if (!footer) {
+            document.querySelectorAll('.solpitch-site-footer').forEach((item) => item.remove());
 
-          const template = document.getElementById('solpitch-footer-template');
-          if (!(template instanceof HTMLTemplateElement)) return;
+            const template = document.getElementById('solpitch-footer-template');
+            if (!(template instanceof HTMLTemplateElement)) return;
 
-          target.appendChild(template.content.firstElementChild.cloneNode(true));
+            footer = template.content.firstElementChild.cloneNode(true);
+            target.appendChild(footer);
+            return;
+          }
+
+          if (footer !== target.lastElementChild) {
+            target.appendChild(footer);
+          }
         };
 
         const observer = new MutationObserver(mountFooter);
