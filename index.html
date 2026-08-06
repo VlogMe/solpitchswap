@@ -14,28 +14,30 @@
     <script type="module" crossorigin src="/solpitchswap/assets/index-COZRiZmD.js"></script>
     <link rel="stylesheet" crossorigin href="/solpitchswap/assets/index-B6bBU_si.css">
     <style>
-      .project-detail .detail-columns {
-        display: block !important;
-        grid-template-columns: none !important;
+      .detail-columns {
+        display: flex !important;
+        flex-direction: column !important;
+        grid-template-columns: 1fr !important;
+        width: 100% !important;
       }
-      .project-detail .detail-columns > .detail-panel {
+      .detail-columns > .detail-panel {
         display: block !important;
         width: 100% !important;
         max-width: none !important;
         min-width: 0 !important;
       }
-      .project-detail .detail-columns > .detail-panel + .detail-panel {
+      .detail-columns > .detail-panel + .detail-panel {
         margin-top: 14px !important;
       }
-      .project-detail .full-ca {
+      .full-ca {
         align-items: center !important;
         min-width: 0 !important;
       }
-      .project-detail .full-ca b {
+      .full-ca b {
         flex: 0 0 auto !important;
         white-space: nowrap !important;
       }
-      .project-detail .claim-panel .claim-button {
+      .claim-panel .claim-button {
         display: block !important;
         width: 100% !important;
         white-space: normal !important;
