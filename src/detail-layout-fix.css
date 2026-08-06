@@ -1,0 +1,23 @@
+.project-detail .detail-columns {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.project-detail .detail-panel,
+.project-detail .claim-panel {
+  min-width: 0;
+  width: 100%;
+}
+
+.project-detail .full-ca {
+  align-items: center;
+}
+
+.project-detail .full-ca b {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.project-detail .claim-panel .claim-button {
+  white-space: normal;
+  line-height: 1.3;
+}
