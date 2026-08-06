@@ -39,9 +39,62 @@
         white-space: normal !important;
         line-height: 1.3 !important;
       }
+
+      .solpitch-site-footer {
+        width: min(1532px, calc(100% - 48px));
+        margin: 8px auto 88px;
+        padding: 20px 24px;
+        border: 1px solid #232838;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #111620, #0b0f17);
+        color: #8d95aa;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        text-align: center;
+      }
+
+      .solpitch-site-footer nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        margin-bottom: 10px;
+      }
+
+      .solpitch-site-footer a {
+        color: #b99cff;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .solpitch-site-footer a:hover {
+        color: #ffffff;
+        text-decoration: underline;
+      }
+
+      .solpitch-site-footer p {
+        margin: 0;
+        font-size: 0.78rem;
+      }
+
+      @media (max-width: 700px) {
+        .solpitch-site-footer {
+          width: calc(100% - 24px);
+          margin-bottom: 88px;
+          padding: 18px 16px;
+        }
+      }
     </style>
   </head>
   <body>
     <div id="root"></div>
+    <footer class="solpitch-site-footer" aria-label="SolPitch legal footer">
+      <nav aria-label="Legal and contact links">
+        <a href="./privacy.html">Privacy Policy</a>
+        <a href="./terms.html">Terms &amp; Conditions</a>
+        <a href="https://x.com/solpitch2026" target="_blank" rel="noreferrer">Contact @solpitch2026 on X</a>
+      </nav>
+      <p>© 2026 solpitch.com All rights reserved.</p>
+    </footer>
   </body>
 </html>
