@@ -99,7 +99,18 @@ export function AdminPanel({ onClose, onPublished }: { onClose: () => void; onPu
   const [submissions, setSubmissions] = useState<CoinSubmission[]>([]); const [message, setMessage] = useState("");
   async function refresh() { setLoading(true); try { const session = await getAdminSession(); setAuthenticated(session.authenticated); setSubmissions(session.authenticated ? await getPendingSubmissions() : []); } catch { setAuthenticated(false); } finally { setLoading(false); } }
   useEffect(() => { void refresh(); }, []);
-  async function login(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const data = new FormData(event.currentTarget); try { await adminLogin(String(data.get("password") || "")); await refresh(); } catch (error) { setMessage(error instanceof Error ? error.message : "Login failed."); } }
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const data = new FormData(event.currentTarget);
+    try {
+      await adminLogin(String(data.get("password") || ""));
+      setMessage("");
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Login failed.");
+    }
+  }
   async function decide(item: CoinSubmission, status: "approved" | "rejected") {
     const note = (document.getElementById(`note-${item.id}`) as HTMLTextAreaElement)?.value ?? "";
     const promoted = (document.getElementById(`promoted-${item.id}`) as HTMLInputElement)?.checked ?? false;
