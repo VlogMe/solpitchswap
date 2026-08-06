@@ -3,6 +3,7 @@ import { handleSwapRequest } from "./swap";
 
 interface Env {
   DB: D1Database;
+  ASSETS: Fetcher;
   ADMIN_PASSWORD: string;
   TURNSTILE_SECRET?: string;
   ALLOWED_ORIGIN: string;
@@ -68,7 +69,11 @@ export default {
       const swapResponse = await handleSwapRequest(request, env, cors);
       if (swapResponse) return withCors(swapResponse, cors);
 
-      return withCors(await listingsWorker.fetch(request, env), cors);
+      if (url.pathname.startsWith("/api/")) {
+        return withCors(await listingsWorker.fetch(request, env), cors);
+      }
+
+      return env.ASSETS.fetch(request);
     } catch (error) {
       console.error("Unhandled SolPitch Worker error", {
         method: request.method,
