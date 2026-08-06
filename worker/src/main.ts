@@ -11,6 +11,17 @@ interface Env {
   JUPITER_API_URL?: string;
 }
 
+const WIF_PROJECT = {
+  id: "solpitch-wif-dogwifhat",
+  slug: "dogwifhat-wif",
+  name: "dogwifhat",
+  symbol: "WIF",
+  contractAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+  pitch: "Literally a dog wif a hat. One of Solana's best-known community memecoins.",
+  description: "[Category: Memecoin] dogwifhat (WIF) is a Solana memecoin built around the viral image of a dog wearing a knitted hat. The project is community-driven and has become one of the most widely recognized memecoins in the Solana ecosystem.",
+  website: "https://dogwifcoin.org/",
+};
+
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
   if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
@@ -57,6 +68,25 @@ async function serveLogo() {
   return new Response(upstream.body, { status: 200, headers });
 }
 
+async function ensureWifProject(env: Env) {
+  await env.DB.prepare(`
+    INSERT INTO projects (
+      id, slug, name, symbol, contract_address, project_status, claim_status,
+      pitch, description, website, added_to_swap, promoted, votes
+    ) VALUES (?1, ?2, ?3, ?4, ?5, 'graduated', 'unclaimed', ?6, ?7, ?8, 1, 0, 0)
+    ON CONFLICT(contract_address) DO NOTHING
+  `).bind(
+    WIF_PROJECT.id,
+    WIF_PROJECT.slug,
+    WIF_PROJECT.name,
+    WIF_PROJECT.symbol,
+    WIF_PROJECT.contractAddress,
+    WIF_PROJECT.pitch,
+    WIF_PROJECT.description,
+    WIF_PROJECT.website,
+  ).run();
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -68,6 +98,10 @@ export default {
 
       const swapResponse = await handleSwapRequest(request, env, cors);
       if (swapResponse) return withCors(swapResponse, cors);
+
+      if (url.pathname === "/api/projects" && request.method === "GET") {
+        await ensureWifProject(env);
+      }
 
       if (url.pathname.startsWith("/api/")) {
         return withCors(await listingsWorker.fetch(request, env), cors);
