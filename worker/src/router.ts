@@ -123,13 +123,21 @@ export default {
     if (adminProjectMatch && request.method === "DELETE") {
       if (!(await isAdmin(request, env))) return json({ error: "Unauthorized." }, 401, cors);
       const id = decodeURIComponent(adminProjectMatch[1]);
-      await env.DB.batch([
-        env.DB.prepare("DELETE FROM project_owners WHERE project_id = ?1").bind(id),
-        env.DB.prepare("DELETE FROM claim_requests WHERE project_id = ?1").bind(id),
-        env.DB.prepare("DELETE FROM wallet_votes WHERE project_id = ?1").bind(id),
-        env.DB.prepare("DELETE FROM activity_events WHERE project_id = ?1").bind(id),
-        env.DB.prepare("DELETE FROM projects WHERE id = ?1").bind(id),
-      ]);
+      const existing = await env.DB.prepare("SELECT id FROM projects WHERE id = ?1 LIMIT 1").bind(id).first();
+      if (!existing) return json({ error: "Project not found." }, 404, cors);
+
+      const tableRows = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
+      const tables = new Set((tableRows.results ?? []).map(row => row.name));
+      const statements: D1PreparedStatement[] = [];
+      const relatedTables = ["project_owners", "claim_requests", "wallet_votes", "activity_events"];
+      for (const table of relatedTables) {
+        if (tables.has(table)) statements.push(env.DB.prepare(`DELETE FROM ${table} WHERE project_id = ?1`).bind(id));
+      }
+      statements.push(env.DB.prepare("DELETE FROM projects WHERE id = ?1").bind(id));
+      await env.DB.batch(statements);
+
+      const remaining = await env.DB.prepare("SELECT id FROM projects WHERE id = ?1 LIMIT 1").bind(id).first();
+      if (remaining) return json({ error: "Project could not be deleted." }, 500, cors);
       return json({ ok: true }, 200, cors);
     }
 
