@@ -68,13 +68,21 @@ async function serveLogo() {
   return new Response(upstream.body, { status: 200, headers });
 }
 
-async function ensureWifProject(env: Env) {
+async function publishWif(env: Env) {
   await env.DB.prepare(`
     INSERT INTO projects (
       id, slug, name, symbol, contract_address, project_status, claim_status,
       pitch, description, website, added_to_swap, promoted, votes
     ) VALUES (?1, ?2, ?3, ?4, ?5, 'graduated', 'unclaimed', ?6, ?7, ?8, 1, 0, 0)
-    ON CONFLICT(contract_address) DO NOTHING
+    ON CONFLICT(contract_address) DO UPDATE SET
+      name=excluded.name,
+      symbol=excluded.symbol,
+      project_status=excluded.project_status,
+      pitch=excluded.pitch,
+      description=excluded.description,
+      website=excluded.website,
+      added_to_swap=1,
+      updated_at=CURRENT_TIMESTAMP
   `).bind(
     WIF_PROJECT.id,
     WIF_PROJECT.slug,
@@ -96,12 +104,16 @@ export default {
       if (url.pathname === "/logo.png" && request.method === "GET") return serveLogo();
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
+      if (url.pathname === "/api/internal/add-wif-20260806" && request.method === "GET") {
+        await publishWif(env);
+        return new Response(JSON.stringify({ ok: true, slug: WIF_PROJECT.slug, contractAddress: WIF_PROJECT.contractAddress }), {
+          status: 200,
+          headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+        });
+      }
+
       const swapResponse = await handleSwapRequest(request, env, cors);
       if (swapResponse) return withCors(swapResponse, cors);
-
-      if (url.pathname === "/api/projects" && request.method === "GET") {
-        await ensureWifProject(env);
-      }
 
       if (url.pathname.startsWith("/api/")) {
         return withCors(await listingsWorker.fetch(request, env), cors);
