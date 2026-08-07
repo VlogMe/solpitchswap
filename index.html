@@ -173,6 +173,11 @@
         };
 
         const updatePublishedCopy = () => {
+          const searchInput = document.querySelector('.contract-search input');
+          if (searchInput && searchInput.placeholder !== 'Paste a contract address to find a project') {
+            searchInput.placeholder = 'Paste a contract address to find a project';
+          }
+
           const widget = document.querySelector('.leaderboard-widget');
           if (widget) {
             const heading = widget.querySelector('.widget-title h3');
