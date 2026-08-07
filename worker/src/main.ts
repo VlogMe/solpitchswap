@@ -11,17 +11,6 @@ interface Env {
   JUPITER_API_URL?: string;
 }
 
-const WIF_SUBMISSION = {
-  id: "solpitch-wif-submission",
-  name: "dogwifhat",
-  symbol: "WIF",
-  contractAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-  pitch: "Literally a dog wif a hat. One of Solana's best-known community memecoins.",
-  description: "[Category: Memecoin] dogwifhat (WIF) is a Solana memecoin built around the viral image of a dog wearing a knitted hat. The project is community-driven and has become one of the most widely recognized memecoins in the Solana ecosystem.",
-  website: "https://dogwifcoin.org/",
-  statusProofUrl: "https://dexscreener.com/solana/EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-};
-
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
   if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
@@ -68,24 +57,6 @@ async function serveLogo() {
   return new Response(upstream.body, { status: 200, headers });
 }
 
-async function ensureWifPendingSubmission(env: Env) {
-  await env.DB.prepare(`
-    INSERT OR IGNORE INTO submissions (
-      id, name, symbol, contract_address, project_status, pitch, description,
-      website, status_proof_url, submitter_email, status
-    ) VALUES (?1, ?2, ?3, ?4, 'graduated', ?5, ?6, ?7, ?8, 'system@solpitch.local', 'pending')
-  `).bind(
-    WIF_SUBMISSION.id,
-    WIF_SUBMISSION.name,
-    WIF_SUBMISSION.symbol,
-    WIF_SUBMISSION.contractAddress,
-    WIF_SUBMISSION.pitch,
-    WIF_SUBMISSION.description,
-    WIF_SUBMISSION.website,
-    WIF_SUBMISSION.statusProofUrl,
-  ).run();
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -97,10 +68,6 @@ export default {
 
       const swapResponse = await handleSwapRequest(request, env, cors);
       if (swapResponse) return withCors(swapResponse, cors);
-
-      if (url.pathname === "/api/admin/submissions" && request.method === "GET") {
-        await ensureWifPendingSubmission(env);
-      }
 
       if (url.pathname.startsWith("/api/")) {
         return withCors(await listingsWorker.fetch(request, env), cors);
