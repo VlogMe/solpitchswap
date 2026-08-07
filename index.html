@@ -110,7 +110,24 @@
 
     <script>
       (() => {
+        const updateLeaderboardCopy = () => {
+          const widget = document.querySelector('.leaderboard-widget');
+          if (!widget) return;
+
+          const heading = widget.querySelector('.widget-title h3');
+          if (heading && heading.textContent !== 'Projects with the most votes') {
+            heading.textContent = 'Projects with the most votes';
+          }
+
+          const note = widget.querySelector('.ranking-note');
+          if (note && note.textContent !== 'Use your Phantom wallet to vote once per week') {
+            note.textContent = 'Use your Phantom wallet to vote once per week';
+          }
+        };
+
         const mountFooter = () => {
+          updateLeaderboardCopy();
+
           const target = document.querySelector('.project-detail, .project-feed');
           if (!target) return;
 
