@@ -94,6 +94,10 @@
         outline: none;
       }
 
+      .submission-claim-note {
+        margin: 0 0 10px !important;
+      }
+
       .solpitch-site-footer {
         width: 100%;
         margin: 22px 0 72px;
@@ -195,6 +199,23 @@
                 openSubmissionForm();
               }
             });
+          }
+
+          const submissionShell = Array.from(document.querySelectorAll('.workflow-shell')).find((shell) => {
+            const title = shell.querySelector('h1');
+            return title && (title.textContent === 'Suggest a Solana project' || title.textContent === 'Submit Solana Projects');
+          });
+          if (submissionShell) {
+            const title = submissionShell.querySelector('h1');
+            if (title) title.textContent = 'Submit Solana Projects';
+
+            const intro = submissionShell.querySelector('.workflow-intro');
+            if (intro && !submissionShell.querySelector('.submission-claim-note')) {
+              const claimNote = document.createElement('p');
+              claimNote.className = 'submission-claim-note';
+              claimNote.textContent = 'Once approved by admin you can claim it using your Phantom dev wallet if it is yours, or you can invite the owner to claim the listing.';
+              intro.before(claimNote);
+            }
           }
         };
 
