@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import ProductionHome from "./ProductionHome";
-import { analyzeToken, createVoteNonce, getActivity, getPublishedProjects, submitVote, type ActivityEvent } from "./api";
+import { analyzeToken, createVoteNonce, getPublishedProjects, submitVote } from "./api";
 import { AdminPanel, SubmitProjectPanel } from "./WorkflowPanels";
 import { AdminClaimsPanel, ClaimProjectPanel } from "./ClaimPanels";
 import AdminProjectsPanel from "./AdminProjectsPanel";
@@ -19,8 +19,6 @@ export default function OperatingApp() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [projectError, setProjectError] = useState("");
-  const [activity, setActivity] = useState<ActivityEvent[]>([]);
-  const [activityOpen, setActivityOpen] = useState(true);
   const [voteBusy, setVoteBusy] = useState(false);
 
   const refreshProjects = useCallback(async () => {
@@ -55,8 +53,7 @@ export default function OperatingApp() {
     } finally { setLoadingProjects(false); }
   }, []);
 
-  const refreshActivity = useCallback(async () => { try { setActivity(await getActivity()); } catch { setActivity([]); } }, []);
-  useEffect(() => { void refreshProjects(); void refreshActivity(); }, [refreshProjects, refreshActivity]);
+  useEffect(() => { void refreshProjects(); }, [refreshProjects]);
 
   useEffect(() => {
     const attachWidget = () => {
@@ -86,7 +83,7 @@ export default function OperatingApp() {
           const nonce = await createVoteNonce(project.slug, walletAddress);
           const signed = await phantom.signMessage(new TextEncoder().encode(nonce.message), "utf8");
           const result = await submitVote({ nonce: nonce.nonce, walletAddress, signature: bytesToBase64(signed.signature) });
-          await refreshProjects(); await refreshActivity();
+          await refreshProjects();
           window.alert(`Vote counted. ${project.name} now has ${result.votes} verified vote${result.votes === 1 ? "" : "s"} this week.`);
         } catch (error) { window.alert(error instanceof Error ? error.message : "The vote could not be completed."); }
         finally { setVoteBusy(false); }
@@ -102,16 +99,15 @@ export default function OperatingApp() {
       }
     };
     document.addEventListener("click", capture, true); return () => document.removeEventListener("click", capture, true);
-  }, [projects, refreshActivity, refreshProjects, voteBusy]);
+  }, [projects, refreshProjects, voteBusy]);
 
   return <>
     <ProductionHome projects={projects} loading={loadingProjects} error={projectError} onRetry={() => void refreshProjects()} />
-    {activityOpen && <aside className="live-activity-panel"><div className="live-activity-heading"><div><span>LIVE</span><strong>Network Activity</strong></div><button onClick={() => setActivityOpen(false)}>×</button></div>{activity.length === 0 ? <p>No verified activity yet. The first live vote or approved claim will appear here.</p> : activity.slice(0, 6).map(item => <div className="live-activity-item" key={item.id}><b>{item.eventType === "vote" ? "▲" : "●"}</b><span>{item.eventText}<small>{new Date(item.createdAt).toLocaleString()}</small></span></div>)}</aside>}
-    <div className="operations-dock"><span className={projectError ? "db-preview" : "db-live"}>{projectError ? "D1 ERROR" : "D1 LIVE"}</span>{!activityOpen && <button onClick={() => setActivityOpen(true)}>Activity</button>}<button onClick={() => setPanel("projects")}>Projects</button><button onClick={() => setPanel("claims")}>Claims</button><button onClick={() => setPanel("admin")}>Submissions</button></div>
+    <div className="operations-dock"><span className={projectError ? "db-preview" : "db-live"}>{projectError ? "D1 ERROR" : "D1 LIVE"}</span><button onClick={() => setPanel("projects")}>Projects</button><button onClick={() => setPanel("claims")}>Claims</button><button onClick={() => setPanel("admin")}>Submissions</button></div>
     {panel === "submit" && <SubmitProjectPanel onClose={() => setPanel(null)} />}
     {panel === "admin" && <AdminPanel onClose={() => setPanel(null)} onPublished={() => void refreshProjects()} />}
-    {panel === "claims" && <AdminClaimsPanel onClose={() => setPanel(null)} onApproved={() => { void refreshProjects(); void refreshActivity(); }} />}
-    {panel === "projects" && <AdminProjectsPanel onClose={() => setPanel(null)} onChanged={() => { void refreshProjects(); void refreshActivity(); }} />}
+    {panel === "claims" && <AdminClaimsPanel onClose={() => setPanel(null)} onApproved={() => { void refreshProjects(); }} />}
+    {panel === "projects" && <AdminProjectsPanel onClose={() => setPanel(null)} onChanged={() => { void refreshProjects(); }} />}
     {claimProject && <ClaimProjectPanel project={claimProject} onClose={() => setClaimProject(null)} />}
   </>;
 }
