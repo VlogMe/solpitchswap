@@ -46,7 +46,8 @@
 
       .trending-strip,
       .directory-summary,
-      .feed-toolbar .filter-row {
+      .feed-toolbar .filter-row,
+      .solpitch-obsolete-widget {
         display: none !important;
       }
 
@@ -164,12 +165,88 @@
 
     <script>
       (() => {
+        let leaderboardProjects = null;
+        let leaderboardLoading = false;
+
         const openSubmissionForm = () => {
           const submitButton = Array.from(document.querySelectorAll('button')).find((button) => {
             const text = button.textContent?.trim().toLowerCase();
             return text === 'submit project' || text === 'submit coin';
           });
           submitButton?.click();
+        };
+
+        const renderTopLeaderboard = () => {
+          const widget = document.querySelector('.leaderboard-widget');
+          if (!widget || !Array.isArray(leaderboardProjects)) return;
+
+          const projects = leaderboardProjects.slice(0, 15);
+          const signature = projects.map((project) => `${project.id || project.slug}:${project.votes || 0}`).join('|');
+          const rows = widget.querySelectorAll(':scope > .leaderboard-rank');
+          if (widget.dataset.top15Signature === signature && rows.length === projects.length) return;
+
+          rows.forEach((row) => row.remove());
+          widget.querySelector(':scope > .side-empty')?.remove();
+
+          const note = widget.querySelector('.ranking-note');
+          projects.forEach((project, index) => {
+            const button = document.createElement('button');
+            button.className = 'rank leaderboard-rank';
+            button.type = 'button';
+
+            const rank = document.createElement('b');
+            rank.textContent = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : String(index + 1);
+
+            const avatar = document.createElement('div');
+            avatar.className = 'mini-avatar';
+            if (project.logo_url) {
+              const img = document.createElement('img');
+              img.src = project.logo_url;
+              img.alt = `${project.name || project.symbol || 'Project'} logo`;
+              avatar.appendChild(img);
+            } else {
+              avatar.textContent = String(project.symbol || '?').slice(0, 2);
+            }
+
+            const identity = document.createElement('span');
+            const name = document.createElement('strong');
+            name.textContent = project.name || 'Solana Project';
+            const symbol = document.createElement('small');
+            symbol.textContent = `$${project.symbol || ''}`;
+            identity.append(name, symbol);
+
+            const votes = document.createElement('em');
+            votes.className = 'animated-count';
+            votes.textContent = `▲ ${Number(project.votes || 0)}`;
+
+            button.append(rank, avatar, identity, votes);
+            button.addEventListener('click', () => {
+              window.location.hash = `#/project/${encodeURIComponent(project.slug)}`;
+            });
+
+            widget.insertBefore(button, note);
+          });
+
+          widget.dataset.top15Signature = signature;
+        };
+
+        const loadTopLeaderboard = () => {
+          if (leaderboardProjects) {
+            renderTopLeaderboard();
+            return;
+          }
+          if (leaderboardLoading) return;
+          leaderboardLoading = true;
+          fetch('https://solpitchswap.kevingpersson.workers.dev/api/projects')
+            .then((response) => response.ok ? response.json() : Promise.reject(new Error('Leaderboard unavailable')))
+            .then((body) => {
+              leaderboardProjects = Array.isArray(body.projects)
+                ? [...body.projects].sort((a, b) => Number(b.votes || 0) - Number(a.votes || 0)).slice(0, 15)
+                : [];
+              renderTopLeaderboard();
+            })
+            .catch(() => {})
+            .finally(() => { leaderboardLoading = false; });
         };
 
         const updatePublishedCopy = () => {
@@ -190,6 +267,15 @@
               note.textContent = 'Use your Phantom wallet to vote once per week';
             }
           }
+
+          document.querySelectorAll('.utility-rail > .side-widget').forEach((card) => {
+            const title = card.querySelector('.widget-title h3')?.textContent?.trim();
+            if (title === 'Recently Claimed' || title === 'Recently Added to Swap') {
+              card.classList.add('solpitch-obsolete-widget');
+            }
+          });
+
+          loadTopLeaderboard();
 
           const directoryHeading = document.querySelector('.feed-toolbar h2');
           if (directoryHeading && directoryHeading.dataset.cleanDirectory !== 'true') {
