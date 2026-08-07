@@ -44,7 +44,8 @@
         display: none !important;
       }
 
-      .trending-strip {
+      .trending-strip,
+      .directory-summary {
         display: none !important;
       }
 
@@ -110,23 +111,28 @@
 
     <script>
       (() => {
-        const updateLeaderboardCopy = () => {
+        const updatePublishedCopy = () => {
           const widget = document.querySelector('.leaderboard-widget');
-          if (!widget) return;
+          if (widget) {
+            const heading = widget.querySelector('.widget-title h3');
+            if (heading && heading.textContent !== 'Projects with the most votes') {
+              heading.textContent = 'Projects with the most votes';
+            }
 
-          const heading = widget.querySelector('.widget-title h3');
-          if (heading && heading.textContent !== 'Projects with the most votes') {
-            heading.textContent = 'Projects with the most votes';
+            const note = widget.querySelector('.ranking-note');
+            if (note && note.textContent !== 'Use your Phantom wallet to vote once per week') {
+              note.textContent = 'Use your Phantom wallet to vote once per week';
+            }
           }
 
-          const note = widget.querySelector('.ranking-note');
-          if (note && note.textContent !== 'Use your Phantom wallet to vote once per week') {
-            note.textContent = 'Use your Phantom wallet to vote once per week';
+          const directoryHeading = document.querySelector('.feed-toolbar h2');
+          if (directoryHeading && directoryHeading.firstChild?.nodeType === Node.TEXT_NODE) {
+            directoryHeading.firstChild.nodeValue = 'Current listings, add yours today ';
           }
         };
 
         const mountFooter = () => {
-          updateLeaderboardCopy();
+          updatePublishedCopy();
 
           const target = document.querySelector('.project-detail, .project-feed');
           if (!target) return;
