@@ -50,6 +50,35 @@
         display: none !important;
       }
 
+      .feed-toolbar {
+        display: block !important;
+        padding-top: 10px !important;
+        padding-bottom: 22px !important;
+      }
+
+      .feed-toolbar > div:first-child {
+        width: 100% !important;
+      }
+
+      .feed-toolbar .eyebrow {
+        display: block !important;
+        margin-bottom: 12px !important;
+        font-size: 14px !important;
+        line-height: 1.2 !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.18em !important;
+        text-transform: uppercase !important;
+      }
+
+      .feed-toolbar h2 {
+        max-width: 920px !important;
+        margin: 0 !important;
+        font-size: clamp(36px, 3vw, 48px) !important;
+        line-height: 1.08 !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.025em !important;
+      }
+
       .directory-submit-link {
         color: #b99cff;
         cursor: pointer;
@@ -104,6 +133,10 @@
       }
 
       @media (max-width: 700px) {
+        .feed-toolbar h2 {
+          font-size: 32px !important;
+        }
+
         .solpitch-site-footer {
           margin-bottom: 24px;
           padding: 18px 16px;
