@@ -207,7 +207,9 @@
           });
           if (submissionShell) {
             const title = submissionShell.querySelector('h1');
-            if (title) title.textContent = 'Submit Solana Projects';
+            if (title && title.textContent !== 'Submit Solana Projects') {
+              title.textContent = 'Submit Solana Projects';
+            }
 
             const intro = submissionShell.querySelector('.workflow-intro');
             if (intro && !submissionShell.querySelector('.submission-claim-note')) {
