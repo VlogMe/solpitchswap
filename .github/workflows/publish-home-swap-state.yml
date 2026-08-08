@@ -1,0 +1,70 @@
+name: Publish homepage swap state
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          path: source
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build
+        working-directory: source
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: site
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Preserve published page patches and install new bundle
+        run: |
+          cp source/dist/assets/index-*.js site/assets/
+          NEW_JS=$(basename source/dist/assets/index-*.js)
+          export NEW_JS
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+
+          path = Path('site/index.html')
+          text = path.read_text()
+          new_js = os.environ['NEW_JS']
+
+          text = re.sub(r'/solpitchswap/assets/index-[^"\']+\.js', f'/solpitchswap/assets/{new_js}', text, count=1)
+
+          text = text.replace("        const API_BASE = 'https://solpitchswap.kevingpersson.workers.dev';\n        let publishedProjectsPromise = null;\n        let directoryWiringInFlight = false;\n\n", "")
+
+          start = text.find('        const getPublishedProjects = async () => {')
+          end = text.find('        const updatePublishedCopy = () => {')
+          if start != -1 and end != -1 and start < end:
+              text = text[:start] + text[end:]
+
+          text = text.replace('          void wireDirectoryBuyButtons();\n', '')
+          path.write_text(text)
+          PY
+      - name: Commit gh-pages update
+        working-directory: site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html assets/
+          if git diff --cached --quiet; then
+            echo "No gh-pages changes to publish"
+            exit 0
+          fi
+          git commit -m "Publish React-state homepage swap selection"
+          git push origin gh-pages
