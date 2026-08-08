@@ -17,7 +17,7 @@
       .project-detail .claim-panel { margin-top: 14px !important; }
       .project-detail .full-ca { align-items: center !important; }
       .project-detail .full-ca b { flex: 0 0 auto !important; white-space: nowrap !important; }
-      .project-detail .claim-panel .claim-button { width: 100% !important; white-space: normal !important; line-height: 1.3 !important; }
+      .project-detail .claim-panel .claim-button { width: 100%!important; white-space: normal!important; line-height:1.3!important; }
       .live-activity-panel { display: none !important; }
       .listing-card .trust-note { display: none !important; }
       .trending-strip,
@@ -87,8 +87,7 @@
           return publishedProjectsPromise;
         };
 
-        const loadCardProjectInSwap = async (card) => {
-          const slug = card.getAttribute('data-project-slug') || '';
+        const loadProjectSlugInSwap = async (slug) => {
           if (!slug) return;
 
           const projects = await getPublishedProjects();
@@ -101,6 +100,11 @@
 
           swapFrame.src = `https://solpitch.net/widget?outputMint=${encodeURIComponent(contractAddress)}`;
           document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        const loadCardProjectInSwap = async (card) => {
+          const slug = card.getAttribute('data-project-slug') || '';
+          return loadProjectSlugInSwap(slug);
         };
 
         const wireDirectoryBuyButtons = () => {
@@ -129,6 +133,48 @@
               event.stopPropagation();
               void loadCardProjectInSwap(card).catch((error) => console.error('Unable to load project in embedded swap', error));
             });
+          });
+        };
+
+        const wireProjectDetailBuyButton = () => {
+          const detail = document.querySelector('.project-detail[data-project-slug]');
+          if (!detail) return;
+
+          const slug = detail.getAttribute('data-project-slug') || '';
+          if (!slug) return;
+
+          const actions = detail.querySelector('.detail-hero .detail-actions');
+          if (!actions) return;
+
+          let buyButton = Array.from(actions.querySelectorAll('button, a')).find((element) => {
+            const text = element.textContent?.trim().toLowerCase() ?? '';
+            return text === 'trade on solpitch' || text === 'buy' || text.startsWith('buy $');
+          });
+
+          if (!buyButton) {
+            buyButton = document.createElement('button');
+            buyButton.className = 'primary';
+            actions.appendChild(buyButton);
+          }
+
+          const symbol = detail.querySelector('.detail-identity h1 span')?.textContent?.trim() || '';
+          const desiredLabel = symbol ? `Buy ${symbol}` : 'Buy';
+          if (buyButton.textContent?.trim() !== desiredLabel) {
+            buyButton.textContent = desiredLabel;
+          }
+
+          buyButton.removeAttribute('href');
+          buyButton.removeAttribute('target');
+          buyButton.removeAttribute('disabled');
+          buyButton.removeAttribute('aria-disabled');
+
+          if (buyButton.dataset.buyWired === 'embedded-project-detail') return;
+          buyButton.dataset.buyWired = 'embedded-project-detail';
+
+          buyButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void loadProjectSlugInSwap(slug).catch((error) => console.error('Unable to load project detail in embedded swap', error));
           });
         };
 
@@ -186,6 +232,7 @@
           }
 
           wireDirectoryBuyButtons();
+          wireProjectDetailBuyButton();
         };
 
         const mountFooter = () => {
