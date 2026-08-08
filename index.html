@@ -108,8 +108,8 @@
             staleSwapButton.removeAttribute('aria-disabled');
             staleSwapButton.classList.remove('disabled');
 
-            if (staleSwapButton.dataset.buyWired === 'swap') return;
-            staleSwapButton.dataset.buyWired = 'swap';
+            if (staleSwapButton.dataset.buyWired === 'embedded-swap') return;
+            staleSwapButton.dataset.buyWired = 'embedded-swap';
 
             staleSwapButton.addEventListener('click', (event) => {
               event.preventDefault();
@@ -118,7 +118,11 @@
               const contractAddress = getCardContractAddress(card);
               if (!contractAddress) return;
 
-              window.open(`https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`, '_blank', 'noopener,noreferrer');
+              const swapFrame = document.querySelector('.embedded-swap iframe');
+              if (!swapFrame) return;
+
+              swapFrame.src = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
+              document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
           });
         };
