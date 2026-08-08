@@ -12,8 +12,8 @@ function OwnershipBadge({ project }: { project: Project }) { const labels = { ve
 function openProject(project: Project, select: (project: Project) => void) { history.replaceState(null, "", `#/project/${encodeURIComponent(project.slug)}`); select(project); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function loadProjectInSwap(project: Project) {
   const frame = document.querySelector<HTMLIFrameElement>(".embedded-swap iframe");
-  if (!frame?.contentWindow) return;
-  frame.contentWindow.postMessage({ type: "SOLPITCH_SELECT_OUTPUT_MINT", mint: project.contractAddress }, SWAP_URL);
+  if (!frame) return;
+  frame.src = `${SWAP_URL}?outputMint=${encodeURIComponent(project.contractAddress)}`;
   document.querySelector(".embedded-swap")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
