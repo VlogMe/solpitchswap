@@ -62,6 +62,7 @@
       (() => {
         const API_BASE = 'https://solpitchswap.kevingpersson.workers.dev';
         let publishedProjectsPromise = null;
+        let directoryWiringInFlight = false;
 
         const openSubmissionForm = () => {
           const submitButton = Array.from(document.querySelectorAll('button')).find((button) => {
@@ -89,62 +90,59 @@
 
         const normalize = (value) => String(value || '').trim().replace(/^\$/, '').toLowerCase();
 
-        const loadCardProjectInSwap = async (card) => {
-          const cardName = card.querySelector('.coin-title h3')?.textContent?.trim() || '';
-          const cardSymbol = card.querySelector('.coin-title span')?.textContent?.trim() || '';
-          if (!cardName || !cardSymbol) {
-            console.error('Unable to identify homepage project card');
-            return;
-          }
+        const wireDirectoryBuyButtons = async () => {
+          if (directoryWiringInFlight) return;
 
-          const projects = await getPublishedProjects();
-          const project = projects.find((item) =>
-            normalize(item.name) === normalize(cardName) &&
-            normalize(item.symbol) === normalize(cardSymbol)
-          );
-          const contractAddress = String(project?.contract_address || '').trim();
-          if (!contractAddress) {
-            console.error('Unable to resolve homepage project contract address', { cardName, cardSymbol });
-            return;
-          }
+          const cards = Array.from(document.querySelectorAll('.listing-card'));
+          const cardsNeedingLinks = cards.filter((card) => !card.querySelector('[data-buy-wired="native-target"]'));
+          if (!cardsNeedingLinks.length) return;
 
-          const swapFrame = document.querySelector('.embedded-swap iframe');
-          if (!swapFrame) {
-            console.error('Embedded SolPitch swap iframe not found');
-            return;
-          }
+          directoryWiringInFlight = true;
+          try {
+            const projects = await getPublishedProjects();
 
-          swapFrame.src = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
-          document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        };
+            cardsNeedingLinks.forEach((card) => {
+              const actions = card.querySelector('.listing-actions');
+              if (!actions) return;
 
-        const wireDirectoryBuyButtons = () => {
-          document.querySelectorAll('.listing-card').forEach((card) => {
-            const actions = card.querySelector('.listing-actions');
-            if (!actions) return;
+              const existingAction = Array.from(actions.querySelectorAll('button, a')).find((element) => {
+                const text = element.textContent?.trim().toLowerCase() ?? '';
+                return text === 'not on swap' || text === 'trade on solpitch' || text === 'buy' || text.startsWith('buy $');
+              });
+              if (!existingAction) return;
 
-            const staleSwapButton = Array.from(actions.querySelectorAll('button, a')).find((element) => {
-              const text = element.textContent?.trim().toLowerCase() ?? '';
-              return text === 'not on swap' || text === 'trade on solpitch' || text === 'buy' || text.startsWith('buy $');
+              const cardName = card.querySelector('.coin-title h3')?.textContent?.trim() || '';
+              const cardSymbol = card.querySelector('.coin-title span')?.textContent?.trim() || '';
+              const project = projects.find((item) =>
+                normalize(item.name) === normalize(cardName) &&
+                normalize(item.symbol) === normalize(cardSymbol)
+              );
+              const contractAddress = String(project?.contract_address || '').trim();
+              if (!contractAddress) {
+                console.error('Unable to resolve homepage project contract address', { cardName, cardSymbol });
+                return;
+              }
+
+              const buyLink = document.createElement('a');
+              buyLink.className = existingAction.className || 'primary';
+              buyLink.classList.remove('disabled');
+              buyLink.classList.add('primary');
+              buyLink.href = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
+              buyLink.target = 'solpitch-swap-frame';
+              buyLink.textContent = `Buy $${String(project.symbol || cardSymbol).replace(/^\$/, '')}`;
+              buyLink.dataset.buyWired = 'native-target';
+              buyLink.addEventListener('click', () => {
+                window.setTimeout(() => {
+                  document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
+              });
+              existingAction.replaceWith(buyLink);
             });
-            if (!staleSwapButton) return;
-
-            if (staleSwapButton.textContent?.trim() !== 'Buy') {
-              staleSwapButton.textContent = 'Buy';
-            }
-            staleSwapButton.removeAttribute('disabled');
-            staleSwapButton.removeAttribute('aria-disabled');
-            staleSwapButton.classList.remove('disabled');
-
-            if (staleSwapButton.dataset.buyWired === 'embedded-project-identity') return;
-            staleSwapButton.dataset.buyWired = 'embedded-project-identity';
-
-            staleSwapButton.addEventListener('click', (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void loadCardProjectInSwap(card).catch((error) => console.error('Unable to load project in embedded swap', error));
-            });
-          });
+          } catch (error) {
+            console.error('Unable to wire homepage Buy links', error);
+          } finally {
+            directoryWiringInFlight = false;
+          }
         };
 
         const updatePublishedCopy = () => {
@@ -200,7 +198,7 @@
             }
           }
 
-          wireDirectoryBuyButtons();
+          void wireDirectoryBuyButtons();
         };
 
         const mountFooter = () => {
