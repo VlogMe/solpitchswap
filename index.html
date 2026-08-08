@@ -68,34 +68,57 @@
           submitButton?.click();
         };
 
+        const getCardContractAddress = (card) => {
+          const caButton = card.querySelector('.ca');
+          if (!caButton || !navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return '';
+
+          const originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
+          let contractAddress = '';
+
+          try {
+            navigator.clipboard.writeText = (value) => {
+              contractAddress = String(value || '').trim();
+              return Promise.resolve();
+            };
+            caButton.click();
+          } catch (_) {
+            contractAddress = '';
+          } finally {
+            try { navigator.clipboard.writeText = originalWriteText; } catch (_) {}
+          }
+
+          return contractAddress;
+        };
+
         const wireDirectoryBuyButtons = () => {
           document.querySelectorAll('.listing-card').forEach((card) => {
             const actions = card.querySelector('.listing-actions');
             if (!actions) return;
 
-            const viewButton = Array.from(actions.querySelectorAll('button, a')).find((element) =>
-              element.textContent?.trim().toLowerCase() === 'view project'
-            );
-            if (!viewButton) return;
-
             const staleSwapButton = Array.from(actions.querySelectorAll('button, a')).find((element) => {
               const text = element.textContent?.trim().toLowerCase() ?? '';
-              return text === 'not on swap' || text === 'trade on solpitch';
+              return text === 'not on swap' || text === 'trade on solpitch' || text === 'buy';
             });
             if (!staleSwapButton) return;
 
-            staleSwapButton.textContent = 'Buy';
+            if (staleSwapButton.textContent?.trim() !== 'Buy') {
+              staleSwapButton.textContent = 'Buy';
+            }
             staleSwapButton.removeAttribute('disabled');
             staleSwapButton.removeAttribute('aria-disabled');
             staleSwapButton.classList.remove('disabled');
 
-            if (staleSwapButton.dataset.buyWired === 'true') return;
-            staleSwapButton.dataset.buyWired = 'true';
+            if (staleSwapButton.dataset.buyWired === 'swap') return;
+            staleSwapButton.dataset.buyWired = 'swap';
 
             staleSwapButton.addEventListener('click', (event) => {
               event.preventDefault();
               event.stopPropagation();
-              viewButton.click();
+
+              const contractAddress = getCardContractAddress(card);
+              if (!contractAddress) return;
+
+              window.open(`https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`, '_blank', 'noopener,noreferrer');
             });
           });
         };
