@@ -87,19 +87,34 @@
           return publishedProjectsPromise;
         };
 
+        const normalize = (value) => String(value || '').trim().replace(/^\$/, '').toLowerCase();
+
         const loadCardProjectInSwap = async (card) => {
-          const slug = card.getAttribute('data-project-slug') || '';
-          if (!slug) return;
+          const cardName = card.querySelector('.coin-title h3')?.textContent?.trim() || '';
+          const cardSymbol = card.querySelector('.coin-title span')?.textContent?.trim() || '';
+          if (!cardName || !cardSymbol) {
+            console.error('Unable to identify homepage project card');
+            return;
+          }
 
           const projects = await getPublishedProjects();
-          const project = projects.find((item) => String(item.slug || '') === slug);
+          const project = projects.find((item) =>
+            normalize(item.name) === normalize(cardName) &&
+            normalize(item.symbol) === normalize(cardSymbol)
+          );
           const contractAddress = String(project?.contract_address || '').trim();
-          if (!contractAddress) return;
+          if (!contractAddress) {
+            console.error('Unable to resolve homepage project contract address', { cardName, cardSymbol });
+            return;
+          }
 
           const swapFrame = document.querySelector('.embedded-swap iframe');
-          if (!swapFrame) return;
+          if (!swapFrame) {
+            console.error('Embedded SolPitch swap iframe not found');
+            return;
+          }
 
-          swapFrame.src = `https://solpitch.net/widget?outputMint=${encodeURIComponent(contractAddress)}`;
+          swapFrame.src = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
           document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
 
@@ -121,8 +136,8 @@
             staleSwapButton.removeAttribute('aria-disabled');
             staleSwapButton.classList.remove('disabled');
 
-            if (staleSwapButton.dataset.buyWired === 'embedded-project-mint') return;
-            staleSwapButton.dataset.buyWired = 'embedded-project-mint';
+            if (staleSwapButton.dataset.buyWired === 'embedded-project-identity') return;
+            staleSwapButton.dataset.buyWired = 'embedded-project-identity';
 
             staleSwapButton.addEventListener('click', (event) => {
               event.preventDefault();
