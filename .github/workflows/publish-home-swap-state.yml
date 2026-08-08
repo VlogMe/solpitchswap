@@ -1,7 +1,7 @@
 name: Publish homepage swap state
 
 on:
-  push:
+  pull_request:
     branches:
       - main
 
@@ -12,7 +12,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout main merge result
         uses: actions/checkout@v4
         with:
           path: source
@@ -45,7 +45,6 @@ jobs:
           new_js = os.environ['NEW_JS']
 
           text = re.sub(r'/solpitchswap/assets/index-[^"\']+\.js', f'/solpitchswap/assets/{new_js}', text, count=1)
-
           text = text.replace("        const API_BASE = 'https://solpitchswap.kevingpersson.workers.dev';\n        let publishedProjectsPromise = null;\n        let directoryWiringInFlight = false;\n\n", "")
 
           start = text.find('        const getPublishedProjects = async () => {')
