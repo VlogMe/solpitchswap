@@ -17,7 +17,7 @@ function ProjectCard({ project, rank, favorite, onFavorite, onOpen }: { project:
     <p>{project.pitch || "No public short description has been provided."}</p>
     <button className="ca" onClick={() => navigator.clipboard?.writeText(project.contractAddress)}>{project.contractAddress.slice(0,10)}…{project.contractAddress.slice(-7)} <b>Copy CA</b></button>
     <div className="stats"><div><small>Market cap</small><strong>{project.marketCap}</strong></div><div><small>Liquidity</small><strong>{project.liquidity}</strong></div><div><small>24h volume</small><strong>{project.volume24h}</strong></div><div><small>Listed</small><strong>{project.listedLabel}</strong></div></div>
-    <div className="listing-footer"><div className="listing-actions"><button className="ghost" onClick={onOpen}>View project</button>{project.claimStatus === "unclaimed" && <button className="claim-button">Claim project</button>}<a href={`${SWAP_URL}?outputMint=${encodeURIComponent(project.contractAddress)}`} target="_blank" rel="noreferrer">Buy ${project.symbol}</a></div></div>
+    <div className="listing-footer"><div className="listing-actions"><button className="ghost" onClick={onOpen}>View project</button>{project.claimStatus === "unclaimed" && <button className="claim-button">Claim project</button>}<button className="primary" onClick={onOpen}>Buy</button></div></div>
   </article>;
 }
 
