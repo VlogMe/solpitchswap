@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="https://solpitchswap.kevingpersson.workers.dev/logo.png" />
     <link rel="apple-touch-icon" href="https://solpitchswap.kevingpersson.workers.dev/logo.png" />
     <title>SolPitch Network | Discover • Vote • Swap Solana Projects</title>
-    <script type="module" crossorigin src="/solpitchswap/assets/index-COZRiZmD.js"></script>
+    <script type="module" crossorigin src="/solpitchswap/assets/index-CvM8h4tK.js"></script>
     <link rel="stylesheet" crossorigin href="/solpitchswap/assets/index-B6bBU_si.css">
     <style>
       .project-detail .detail-columns { display: block !important; }
@@ -60,96 +60,12 @@
 
     <script>
       (() => {
-        const API_BASE = 'https://solpitchswap.kevingpersson.workers.dev';
-        let publishedProjectsPromise = null;
-        let directoryWiringInFlight = false;
-
         const openSubmissionForm = () => {
           const submitButton = Array.from(document.querySelectorAll('button')).find((button) => {
             const text = button.textContent?.trim().toLowerCase();
             return text === 'submit project' || text === 'submit coin';
           });
           submitButton?.click();
-        };
-
-        const getPublishedProjects = async () => {
-          if (!publishedProjectsPromise) {
-            publishedProjectsPromise = fetch(`${API_BASE}/api/projects`, { credentials: 'include' })
-              .then((response) => {
-                if (!response.ok) throw new Error(`Project lookup failed (${response.status})`);
-                return response.json();
-              })
-              .then((body) => Array.isArray(body.projects) ? body.projects : [])
-              .catch((error) => {
-                publishedProjectsPromise = null;
-                throw error;
-              });
-          }
-          return publishedProjectsPromise;
-        };
-
-        const normalize = (value) => String(value || '').trim().replace(/^\$/, '').toLowerCase();
-
-        const wireDirectoryBuyButtons = async () => {
-          if (directoryWiringInFlight) return;
-
-          const cards = Array.from(document.querySelectorAll('.listing-card'));
-          const cardsNeedingButtons = cards.filter((card) => !card.querySelector('[data-buy-wired="embedded-direct"]'));
-          if (!cardsNeedingButtons.length) return;
-
-          directoryWiringInFlight = true;
-          try {
-            const projects = await getPublishedProjects();
-
-            cardsNeedingButtons.forEach((card) => {
-              const actions = card.querySelector('.listing-actions');
-              if (!actions) return;
-
-              const existingAction = Array.from(actions.querySelectorAll('button, a')).find((element) => {
-                const text = element.textContent?.trim().toLowerCase() ?? '';
-                return text === 'not on swap' || text === 'trade on solpitch' || text === 'buy' || text.startsWith('buy $');
-              });
-              if (!existingAction) return;
-
-              const cardName = card.querySelector('.coin-title h3')?.textContent?.trim() || '';
-              const cardSymbol = card.querySelector('.coin-title span')?.textContent?.trim() || '';
-              const project = projects.find((item) =>
-                normalize(item.name) === normalize(cardName) &&
-                normalize(item.symbol) === normalize(cardSymbol)
-              );
-              const contractAddress = String(project?.contract_address || '').trim();
-              if (!contractAddress) {
-                console.error('Unable to resolve homepage project contract address', { cardName, cardSymbol });
-                return;
-              }
-
-              const buyButton = document.createElement('button');
-              buyButton.type = 'button';
-              buyButton.className = existingAction.className || 'primary';
-              buyButton.classList.remove('disabled');
-              buyButton.classList.add('primary');
-              buyButton.textContent = `Buy $${String(project.symbol || cardSymbol).replace(/^\$/, '')}`;
-              buyButton.dataset.buyWired = 'embedded-direct';
-              buyButton.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-
-                const swapFrame = document.querySelector('.embedded-swap iframe');
-                if (!swapFrame) {
-                  console.error('Embedded SolPitch swap iframe not found');
-                  return;
-                }
-
-                swapFrame.src = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
-                document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              });
-              existingAction.replaceWith(buyButton);
-            });
-          } catch (error) {
-            console.error('Unable to wire homepage Buy buttons', error);
-          } finally {
-            directoryWiringInFlight = false;
-          }
         };
 
         const updatePublishedCopy = () => {
@@ -205,7 +121,6 @@
             }
           }
 
-          void wireDirectoryBuyButtons();
         };
 
         const mountFooter = () => {
