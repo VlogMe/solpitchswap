@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/home-project-swap-state
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
