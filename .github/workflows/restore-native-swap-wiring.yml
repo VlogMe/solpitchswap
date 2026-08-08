@@ -1,0 +1,114 @@
+name: Restore native Network swap wiring
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: source
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore local native swap wiring only
+        working-directory: source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src/ProductionHome.tsx')
+          text = path.read_text()
+
+          text = text.replace('const SWAP_URL = "https://solpitch.net";\n', '', 1)
+
+          marker = 'function ProjectCard({\n'
+          helper = '''function loadProjectInNativeSwap(project: Project) {\n  window.dispatchEvent(new CustomEvent("solpitch:load-listed-token", { detail: { mint: project.contractAddress } }));\n}\n\n'''
+          if helper not in text:
+              if marker not in text:
+                  raise SystemExit('ProjectCard marker not found')
+              text = text.replace(marker, helper + marker, 1)
+
+          old_home_buy = '<a href={`${SWAP_URL}?outputMint=${encodeURIComponent(project.contractAddress)}`} target="solpitch-swap-frame">Buy ${project.symbol}</a>'
+          new_home_buy = '<button className="primary" type="button" onClick={() => loadProjectInNativeSwap(project)}>Buy ${project.symbol}</button>'
+          if old_home_buy not in text:
+              raise SystemExit('Homepage remote Buy link not found')
+          text = text.replace(old_home_buy, new_home_buy, 1)
+
+          old_detail = '{project.addedToSwap && <a href={`${SWAP_URL}?outputMint=${encodeURIComponent(project.contractAddress)}`} target="solpitch-swap-frame">Trade on SolPitch</a>}'
+          new_detail = '{project.addedToSwap && <button className="primary" type="button" data-load-listed-token={project.contractAddress} onClick={()=>loadProjectInNativeSwap(project)}>Buy ${project.symbol}</button>}'
+          if old_detail not in text:
+              raise SystemExit('Project detail remote Trade link not found')
+          text = text.replace(old_detail, new_detail, 1)
+
+          text = text.replace('  const [selectedSwapProject,setSelectedSwapProject]=useState<Project|null>(null);\n', '', 1)
+
+          state_block = '''  const selectProjectForSwap=(project:Project)=>{\n    setSelectedSwapProject(project);\n    window.requestAnimationFrame(()=>document.querySelector(".embedded-swap")?.scrollIntoView({behavior:"smooth",block:"start"}));\n  };\n  const swapSrc=selectedSwapProject\n    ? `${SWAP_URL}?outputMint=${encodeURIComponent(selectedSwapProject.contractAddress)}`\n    : `${SWAP_URL}/widget`;\n\n'''
+          if state_block in text:
+              text = text.replace(state_block, '', 1)
+
+          pattern = r'<aside className="utility-rail"><section className="swap-widget embedded-swap">.*?</section><section className="side-widget leaderboard-widget">'
+          replacement = '<aside className="utility-rail"><section className="swap-widget embedded-swap"></section><section className="side-widget leaderboard-widget">'
+          text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'Expected one remote swap presentation, replaced {count}')
+
+          if 'https://solpitch.net' in text or 'solpitch-swap-frame' in text:
+              raise SystemExit('Remote SolPitch swap reference still present in ProductionHome.tsx')
+
+          path.write_text(text)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ProductionHome.tsx
+          git commit -m "Restore independent native Network swap wiring"
+          git push origin main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build
+        working-directory: source
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: site
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish compiled bundle only
+        run: |
+          cp source/dist/assets/index-*.js site/assets/
+          NEW_JS=$(basename source/dist/assets/index-*.js)
+          export NEW_JS
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          path = Path('site/index.html')
+          text = path.read_text()
+          text = re.sub(r'/solpitchswap/assets/index-[^"\']+\.js', f'/solpitchswap/assets/{os.environ["NEW_JS"]}', text, count=1)
+          path.write_text(text)
+          PY
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html assets/
+          git commit -m "Publish independent native Network swap wiring"
+          git push origin gh-pages
