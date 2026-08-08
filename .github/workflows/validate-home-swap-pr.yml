@@ -1,7 +1,7 @@
 name: Build merged homepage swap
 
 on:
-  push:
+  pull_request:
     branches:
       - main
 
