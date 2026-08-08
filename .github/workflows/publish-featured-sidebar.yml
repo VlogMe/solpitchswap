@@ -1,0 +1,102 @@
+name: Publish Featured Projects sidebar
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: source
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Featured Projects sidebar container
+        working-directory: source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/ProductionHome.tsx')
+          text = path.read_text()
+
+          old_ranked = '''function RankedProject({ project, rank, onOpen }: { project: Project; rank: number; onOpen: () => void }) {
+  const medal=rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":String(rank);
+  return <button className="rank leaderboard-rank" onClick={onOpen}><b>{medal}</b><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>${project.symbol}</small></span><em className="animated-count">▲ {project.votes}</em></button>;
+}
+'''
+          new_ranked = old_ranked + '''\nfunction FeaturedProject({ project, onOpen }: { project: Project; onOpen: () => void }) {
+  return <button className="rank featured-project-rank" onClick={onOpen}><b>★</b><ProjectAvatar project={project} small/><span><strong>{project.name}</strong><small>${project.symbol}</small></span><em>View</em></button>;
+}
+'''
+          if old_ranked not in text:
+              raise SystemExit('RankedProject block not found')
+          text = text.replace(old_ranked, new_ranked, 1)
+
+          old_featured_line = '  const claimed=projects.filter(project=>project.claimStatus==="verified");\n'
+          new_featured_line = '  const featuredProjects=projects.filter(project=>project.promoted);\n' + old_featured_line
+          if old_featured_line not in text:
+              raise SystemExit('claimed projects line not found')
+          text = text.replace(old_featured_line, new_featured_line, 1)
+
+          old_sidebar = '''<section className="side-widget leaderboard-widget"><div className="widget-title"><div><h3>Most Voted This Week</h3><small>Verified wallet leaderboard</small></div><span className="competition-live">LIVE</span></div>{ranked.length?ranked.slice(0,15).map((project,index)=><RankedProject key={project.slug} project={project} rank={index+1} onOpen={()=>openProject(project,setSelected)}/>):<div className="side-empty"><strong>0 votes yet</strong><span>Published projects will compete here.</span></div>}<p className="ranking-note">One verified Phantom wallet can vote once per project each week.</p></section></aside>'''
+          new_sidebar = '''<section className="side-widget leaderboard-widget"><div className="widget-title"><div><h3>Most Voted This Week</h3><small>Verified wallet leaderboard</small></div><span className="competition-live">LIVE</span></div>{ranked.length?ranked.slice(0,15).map((project,index)=><RankedProject key={project.slug} project={project} rank={index+1} onOpen={()=>openProject(project,setSelected)}/>):<div className="side-empty"><strong>0 votes yet</strong><span>Published projects will compete here.</span></div>}<p className="ranking-note">One verified Phantom wallet can vote once per project each week.</p></section><section className="side-widget featured-projects-widget"><div className="widget-title"><div><h3>Featured Project's</h3><small>Promoted by SolPitch</small></div><span className="featured">FEATURED</span></div>{featuredProjects.length?featuredProjects.map(project=><FeaturedProject key={project.slug} project={project} onOpen={()=>openProject(project,setSelected)}/>):<div className="side-empty"><strong>No featured projects yet</strong><span>Promoted projects will appear here automatically.</span></div>}</section></aside>'''
+          if old_sidebar not in text:
+              raise SystemExit('Leaderboard sidebar block not found')
+          text = text.replace(old_sidebar, new_sidebar, 1)
+
+          path.write_text(text)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ProductionHome.tsx
+          git commit -m "Add Featured Projects sidebar container"
+          git push origin main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build
+        working-directory: source
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: site
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish compiled JS only
+        run: |
+          cp source/dist/assets/index-*.js site/assets/
+          NEW_JS=$(basename source/dist/assets/index-*.js)
+          export NEW_JS
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          path = Path('site/index.html')
+          text = path.read_text()
+          text = re.sub(r'/solpitchswap/assets/index-[^"\\']+\\.js', f'/solpitchswap/assets/{os.environ["NEW_JS"]}', text, count=1)
+          path.write_text(text)
+          PY
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html assets/
+          git commit -m "Publish Featured Projects sidebar container"
+          git push origin gh-pages
