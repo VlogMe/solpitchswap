@@ -60,6 +60,9 @@
 
     <script>
       (() => {
+        const API_BASE = 'https://solpitchswap.kevingpersson.workers.dev';
+        let publishedProjectsPromise = null;
+
         const openSubmissionForm = () => {
           const submitButton = Array.from(document.querySelectorAll('button')).find((button) => {
             const text = button.textContent?.trim().toLowerCase();
@@ -68,26 +71,36 @@
           submitButton?.click();
         };
 
-        const getCardContractAddress = (card) => {
-          const caButton = card.querySelector('.ca');
-          if (!caButton || !navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return '';
-
-          const originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
-          let contractAddress = '';
-
-          try {
-            navigator.clipboard.writeText = (value) => {
-              contractAddress = String(value || '').trim();
-              return Promise.resolve();
-            };
-            caButton.click();
-          } catch (_) {
-            contractAddress = '';
-          } finally {
-            try { navigator.clipboard.writeText = originalWriteText; } catch (_) {}
+        const getPublishedProjects = async () => {
+          if (!publishedProjectsPromise) {
+            publishedProjectsPromise = fetch(`${API_BASE}/api/projects`, { credentials: 'include' })
+              .then((response) => {
+                if (!response.ok) throw new Error(`Project lookup failed (${response.status})`);
+                return response.json();
+              })
+              .then((body) => Array.isArray(body.projects) ? body.projects : [])
+              .catch((error) => {
+                publishedProjectsPromise = null;
+                throw error;
+              });
           }
+          return publishedProjectsPromise;
+        };
 
-          return contractAddress;
+        const loadCardProjectInSwap = async (card) => {
+          const slug = card.getAttribute('data-project-slug') || '';
+          if (!slug) return;
+
+          const projects = await getPublishedProjects();
+          const project = projects.find((item) => String(item.slug || '') === slug);
+          const contractAddress = String(project?.contract_address || '').trim();
+          if (!contractAddress) return;
+
+          const swapFrame = document.querySelector('.embedded-swap iframe');
+          if (!swapFrame) return;
+
+          swapFrame.src = `https://solpitch.net/widget?outputMint=${encodeURIComponent(contractAddress)}`;
+          document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
 
         const wireDirectoryBuyButtons = () => {
@@ -97,7 +110,7 @@
 
             const staleSwapButton = Array.from(actions.querySelectorAll('button, a')).find((element) => {
               const text = element.textContent?.trim().toLowerCase() ?? '';
-              return text === 'not on swap' || text === 'trade on solpitch' || text === 'buy';
+              return text === 'not on swap' || text === 'trade on solpitch' || text === 'buy' || text.startsWith('buy $');
             });
             if (!staleSwapButton) return;
 
@@ -108,21 +121,13 @@
             staleSwapButton.removeAttribute('aria-disabled');
             staleSwapButton.classList.remove('disabled');
 
-            if (staleSwapButton.dataset.buyWired === 'embedded-swap') return;
-            staleSwapButton.dataset.buyWired = 'embedded-swap';
+            if (staleSwapButton.dataset.buyWired === 'embedded-project-mint') return;
+            staleSwapButton.dataset.buyWired = 'embedded-project-mint';
 
             staleSwapButton.addEventListener('click', (event) => {
               event.preventDefault();
               event.stopPropagation();
-
-              const contractAddress = getCardContractAddress(card);
-              if (!contractAddress) return;
-
-              const swapFrame = document.querySelector('.embedded-swap iframe');
-              if (!swapFrame) return;
-
-              swapFrame.src = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
-              document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              void loadCardProjectInSwap(card).catch((error) => console.error('Unable to load project in embedded swap', error));
             });
           });
         };
