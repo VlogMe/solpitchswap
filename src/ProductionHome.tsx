@@ -104,7 +104,7 @@ export default function ProductionHome({ projects, loading, error, onRetry }: { 
     window.requestAnimationFrame(()=>document.querySelector(".embedded-swap")?.scrollIntoView({behavior:"smooth",block:"start"}));
   };
   const swapSrc=selectedSwapProject
-    ? `${SWAP_URL}/widget?outputMint=${encodeURIComponent(selectedSwapProject.contractAddress)}`
+    ? `${SWAP_URL}?outputMint=${encodeURIComponent(selectedSwapProject.contractAddress)}`
     : `${SWAP_URL}/widget`;
 
   const findProjectByContract=()=>{
