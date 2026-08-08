@@ -94,14 +94,14 @@
           if (directoryWiringInFlight) return;
 
           const cards = Array.from(document.querySelectorAll('.listing-card'));
-          const cardsNeedingLinks = cards.filter((card) => !card.querySelector('[data-buy-wired="native-target"]'));
-          if (!cardsNeedingLinks.length) return;
+          const cardsNeedingButtons = cards.filter((card) => !card.querySelector('[data-buy-wired="embedded-direct"]'));
+          if (!cardsNeedingButtons.length) return;
 
           directoryWiringInFlight = true;
           try {
             const projects = await getPublishedProjects();
 
-            cardsNeedingLinks.forEach((card) => {
+            cardsNeedingButtons.forEach((card) => {
               const actions = card.querySelector('.listing-actions');
               if (!actions) return;
 
@@ -123,23 +123,30 @@
                 return;
               }
 
-              const buyLink = document.createElement('a');
-              buyLink.className = existingAction.className || 'primary';
-              buyLink.classList.remove('disabled');
-              buyLink.classList.add('primary');
-              buyLink.href = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
-              buyLink.target = 'solpitch-swap-frame';
-              buyLink.textContent = `Buy $${String(project.symbol || cardSymbol).replace(/^\$/, '')}`;
-              buyLink.dataset.buyWired = 'native-target';
-              buyLink.addEventListener('click', () => {
-                window.setTimeout(() => {
-                  document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 50);
+              const buyButton = document.createElement('button');
+              buyButton.type = 'button';
+              buyButton.className = existingAction.className || 'primary';
+              buyButton.classList.remove('disabled');
+              buyButton.classList.add('primary');
+              buyButton.textContent = `Buy $${String(project.symbol || cardSymbol).replace(/^\$/, '')}`;
+              buyButton.dataset.buyWired = 'embedded-direct';
+              buyButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const swapFrame = document.querySelector('.embedded-swap iframe');
+                if (!swapFrame) {
+                  console.error('Embedded SolPitch swap iframe not found');
+                  return;
+                }
+
+                swapFrame.src = `https://solpitch.net?outputMint=${encodeURIComponent(contractAddress)}`;
+                document.querySelector('.embedded-swap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               });
-              existingAction.replaceWith(buyLink);
+              existingAction.replaceWith(buyButton);
             });
           } catch (error) {
-            console.error('Unable to wire homepage Buy links', error);
+            console.error('Unable to wire homepage Buy buttons', error);
           } finally {
             directoryWiringInFlight = false;
           }
