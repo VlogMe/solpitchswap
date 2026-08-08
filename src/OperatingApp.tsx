@@ -56,16 +56,6 @@ export default function OperatingApp() {
   useEffect(() => { void refreshProjects(); }, [refreshProjects]);
 
   useEffect(() => {
-    const attachWidget = () => {
-      const frame = document.querySelector<HTMLIFrameElement>(".embedded-swap iframe");
-      if (frame && frame.src !== "https://solpitch.net/widget") frame.src = "https://solpitch.net/widget";
-    };
-    attachWidget();
-    const timer = window.setTimeout(attachWidget, 250);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     const capture = async (event: MouseEvent) => {
       const button = (event.target as HTMLElement).closest("button"); if (!button) return;
       const text = button.textContent?.trim().toLowerCase() ?? "";
