@@ -51,6 +51,23 @@
         border: 1px solid #523d78 !important;
         color: #ffffff !important;
       }
+      .ca-copy-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 28px;
+        transform: translateX(-50%);
+        z-index: 9999;
+        padding: 10px 16px;
+        border: 1px solid #8d57ff;
+        border-radius: 10px;
+        background: #131823;
+        color: #ffffff;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        font-size: 0.8rem;
+        font-weight: 800;
+        box-shadow: 0 14px 40px rgba(0,0,0,.38);
+        pointer-events: none;
+      }
       @media (max-width: 700px) {
         .feed-toolbar h2 { font-size: 32px !important; }
         .solpitch-site-footer { margin-bottom: 24px; padding: 18px 16px; }
@@ -73,6 +90,25 @@
 
     <script>
       (() => {
+        let copyToastTimer;
+
+        const showCopyToast = () => {
+          document.querySelectorAll('.ca-copy-toast').forEach((toast) => toast.remove());
+          const toast = document.createElement('div');
+          toast.className = 'ca-copy-toast';
+          toast.setAttribute('role', 'status');
+          toast.setAttribute('aria-live', 'polite');
+          toast.textContent = 'CA Copied to clipboard';
+          document.body.appendChild(toast);
+          if (copyToastTimer) window.clearTimeout(copyToastTimer);
+          copyToastTimer = window.setTimeout(() => toast.remove(), 1600);
+        };
+
+        document.addEventListener('click', (event) => {
+          const target = event.target instanceof Element ? event.target.closest('button.ca, button.full-ca') : null;
+          if (target) showCopyToast();
+        });
+
         const openSubmissionForm = () => {
           const submitButton = Array.from(document.querySelectorAll('button')).find((button) => {
             const text = button.textContent?.trim().toLowerCase();
