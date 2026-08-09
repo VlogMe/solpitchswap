@@ -91,8 +91,8 @@
           });
 
           const detailClaimButton = document.querySelector('.project-detail .detail-hero > .detail-actions .claim-button');
-          if (detailClaimButton && detailClaimButton.textContent?.trim() === 'Claim official ownership') {
-            detailClaimButton.textContent = 'Claim ownership';
+          if (detailClaimButton && (detailClaimButton.textContent?.trim() === 'Claim official ownership' || detailClaimButton.textContent?.trim() === 'Claim ownership')) {
+            detailClaimButton.textContent = 'Claim';
           }
 
           const searchInput = document.querySelector('.contract-search input');
