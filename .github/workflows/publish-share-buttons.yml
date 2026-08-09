@@ -56,3 +56,5 @@ jobs:
           git add index.html assets/
           git commit -m "Publish compact project action buttons"
           git push origin gh-pages
+
+# republish trigger for CA copy confirmation
