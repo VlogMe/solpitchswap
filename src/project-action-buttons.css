@@ -1,0 +1,17 @@
+/* Compact action buttons on listing cards and project detail pages only. */
+.listing-card .listing-actions button,
+.project-detail .detail-actions button {
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.listing-card .listing-actions {
+  gap: 5px;
+}
+
+.project-detail .detail-actions {
+  gap: 6px;
+}
