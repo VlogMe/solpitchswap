@@ -25,6 +25,9 @@ export default function OperatingApp() {
     setLoadingProjects(true); setProjectError("");
     try {
       const published = await getPublishedProjects();
+      setProjects(published);
+      setLoadingProjects(false);
+
       const enriched = await Promise.all(published.map(async project => {
         try {
           const metadata = await analyzeToken(project.contractAddress);
@@ -50,7 +53,8 @@ export default function OperatingApp() {
     } catch (error) {
       setProjects([]);
       setProjectError(error instanceof Error ? error.message : "Unable to load live listings.");
-    } finally { setLoadingProjects(false); }
+      setLoadingProjects(false);
+    }
   }, []);
 
   useEffect(() => { void refreshProjects(); }, [refreshProjects]);
@@ -80,7 +84,7 @@ export default function OperatingApp() {
         return;
       }
       if (text === "submit project" || text === "submit coin") { event.preventDefault(); event.stopPropagation(); setPanel("submit"); return; }
-      if (text === "claim" || text.includes("claim project") || text.includes("claim official ownership") || text.includes("start free claim")) {
+      if (button.classList.contains("claim-button") || text.includes("claim project") || text.includes("claim official ownership") || text.includes("claim ownership") || text.includes("start free claim")) {
         event.preventDefault(); event.stopPropagation();
         const container = button.closest("article, .project-detail, .detail-hero");
         const slug = container?.getAttribute("data-project-slug") ?? container?.closest("[data-project-slug]")?.getAttribute("data-project-slug") ?? "";
