@@ -80,7 +80,7 @@ export default function OperatingApp() {
         return;
       }
       if (text === "submit project" || text === "submit coin") { event.preventDefault(); event.stopPropagation(); setPanel("submit"); return; }
-      if (text.includes("claim project") || text.includes("claim official ownership") || text.includes("start free claim")) {
+      if (text === "claim" || text.includes("claim project") || text.includes("claim official ownership") || text.includes("start free claim")) {
         event.preventDefault(); event.stopPropagation();
         const container = button.closest("article, .project-detail, .detail-hero");
         const slug = container?.getAttribute("data-project-slug") ?? container?.closest("[data-project-slug]")?.getAttribute("data-project-slug") ?? "";
