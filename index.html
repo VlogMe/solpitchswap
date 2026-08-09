@@ -74,6 +74,11 @@
         };
 
         const updatePublishedCopy = () => {
+          const detailClaimButton = document.querySelector('.project-detail .detail-hero > .detail-actions .claim-button');
+          if (detailClaimButton && detailClaimButton.textContent?.trim() === 'Claim official ownership') {
+            detailClaimButton.textContent = 'Claim ownership';
+          }
+
           const searchInput = document.querySelector('.contract-search input');
           if (searchInput && searchInput.placeholder !== 'Paste a contract address to find a project') {
             searchInput.placeholder = 'Paste a contract address to find a project';
