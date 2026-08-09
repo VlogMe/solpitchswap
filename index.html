@@ -39,9 +39,12 @@
       .solpitch-site-footer a:hover { color: #ffffff; text-decoration: underline; }
       .solpitch-site-footer p { margin: 0; font-size: 0.78rem; }
       .listing-card .listing-actions button,
-      .project-detail .detail-actions button { padding: 6px 9px !important; border-radius: 8px !important; font-size: 0.72rem !important; line-height: 1.1 !important; font-weight: 800 !important; }
+      .project-detail .detail-hero > .detail-actions button { padding: 6px 9px !important; border-radius: 8px !important; font-size: 0.72rem !important; line-height: 1.1 !important; font-weight: 800 !important; }
       .listing-card .listing-actions { gap: 5px !important; }
-      .project-detail .detail-actions { gap: 6px !important; }
+      .project-detail .detail-hero > .detail-actions { gap: 6px !important; }
+      .project-detail .detail-hero > .detail-actions button:not(.vote):not(.primary) { border: 1px solid #232838 !important; background: #131823 !important; color: #ffffff !important; cursor: pointer !important; }
+      .project-detail .detail-hero > .detail-actions .claim-button { border-color: #523d78 !important; background: #131823 !important; color: #d8c5ff !important; }
+      .project-detail .detail-hero > .detail-actions .primary { background: linear-gradient(135deg,#8d57ff,#5c35dd) !important; border: 0 !important; color: #ffffff !important; }
       @media (max-width: 700px) {
         .feed-toolbar h2 { font-size: 32px !important; }
         .solpitch-site-footer { margin-bottom: 24px; padding: 18px 16px; }
@@ -72,7 +75,38 @@
           submitButton?.click();
         };
 
+        const normalizeProjectActions = () => {
+          document.querySelectorAll('.listing-card .listing-actions').forEach((actions) => {
+            const buttons = Array.from(actions.querySelectorAll(':scope > button'));
+            const view = buttons.find((button) => button.textContent?.trim().toLowerCase() === 'view project');
+            const claim = buttons.find((button) => button.classList.contains('claim-button'));
+            const share = buttons.find((button) => button.textContent?.includes('Share'));
+            const buy = buttons.find((button) => button.classList.contains('primary') && button.textContent?.trim().startsWith('Buy '));
+
+            if (claim && claim.textContent !== 'Claim') claim.textContent = 'Claim';
+            [view, claim, share, buy].forEach((button) => {
+              if (button) actions.appendChild(button);
+            });
+          });
+
+          document.querySelectorAll('.project-detail .detail-hero > .detail-actions').forEach((actions) => {
+            const buttons = Array.from(actions.querySelectorAll(':scope > button'));
+            const vote = buttons.find((button) => button.classList.contains('vote'));
+            const claim = buttons.find((button) => button.classList.contains('claim-button'));
+            const share = buttons.find((button) => button.textContent?.includes('Share'));
+            const buy = buttons.find((button) => button.classList.contains('primary') && button.textContent?.trim().startsWith('Buy '));
+
+            if (claim && claim.textContent !== 'Claim ownership') claim.textContent = 'Claim ownership';
+            if (share) share.classList.add('ghost');
+            [vote, claim, share, buy].forEach((button) => {
+              if (button) actions.appendChild(button);
+            });
+          });
+        };
+
         const updatePublishedCopy = () => {
+          normalizeProjectActions();
+
           const searchInput = document.querySelector('.contract-search input');
           if (searchInput && searchInput.placeholder !== 'Paste a contract address to find a project') {
             searchInput.placeholder = 'Paste a contract address to find a project';
@@ -124,7 +158,6 @@
               intro.before(claimNote);
             }
           }
-
         };
 
         const mountFooter = () => {
