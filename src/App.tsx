@@ -1,4 +1,5 @@
 import "./detail-layout-fix.css";
+import "./project-action-buttons.css";
 import OperatingApp from "./OperatingApp";
 import SiteFooter from "./SiteFooter";
 
