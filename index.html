@@ -79,6 +79,10 @@
             const buttons = Array.from(actions.querySelectorAll(':scope > button'));
             const share = buttons.find((button) => button.textContent?.includes('Share'));
             const buy = buttons.find((button) => button.classList.contains('primary') && button.textContent?.trim().startsWith('Buy '));
+            const claim = buttons.find((button) => button.classList.contains('claim-button'));
+            if (claim && claim.textContent?.trim() === 'Claim project') {
+              claim.textContent = 'Claim';
+            }
             if (share && buy && share.nextElementSibling !== buy) {
               actions.insertBefore(share, buy);
             }
