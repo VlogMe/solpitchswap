@@ -45,7 +45,12 @@
       .listing-card .listing-actions > .claim-button { color: #ffffff !important; }
       .listing-card .listing-actions > .primary { order: 99; }
       .project-detail .detail-actions { gap: 6px !important; }
-      .project-detail .detail-hero > .detail-actions .claim-button { color: #000000 !important; }
+      .project-detail .detail-hero > .detail-actions .claim-button,
+      .project-detail .detail-hero > .detail-actions button:not(.vote):not(.primary):not(.claim-button) {
+        background: #131823 !important;
+        border: 1px solid #523d78 !important;
+        color: #ffffff !important;
+      }
       @media (max-width: 700px) {
         .feed-toolbar h2 { font-size: 32px !important; }
         .solpitch-site-footer { margin-bottom: 24px; padding: 18px 16px; }
