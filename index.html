@@ -75,6 +75,15 @@
         };
 
         const updatePublishedCopy = () => {
+          document.querySelectorAll('.listing-card .listing-actions').forEach((actions) => {
+            const buttons = Array.from(actions.querySelectorAll(':scope > button'));
+            const share = buttons.find((button) => button.textContent?.includes('Share'));
+            const buy = buttons.find((button) => button.classList.contains('primary') && button.textContent?.trim().startsWith('Buy '));
+            if (share && buy && share.nextElementSibling !== buy) {
+              actions.insertBefore(share, buy);
+            }
+          });
+
           const detailClaimButton = document.querySelector('.project-detail .detail-hero > .detail-actions .claim-button');
           if (detailClaimButton && detailClaimButton.textContent?.trim() === 'Claim official ownership') {
             detailClaimButton.textContent = 'Claim ownership';
