@@ -29,7 +29,7 @@ function json(data: unknown, status = 200, headers: HeadersInit = {}) { return n
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
   if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
-  return { "access-control-allow-origin": origin, "access-control-allow-credentials": "true", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET,POST,PATCH,OPTIONS", vary: "Origin" };
+  return { "access-control-allow-origin": origin, "access-control-allow-credentials": "true", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS", vary: "Origin" };
 }
 function parseCookies(request: Request) { const cookie = request.headers.get("cookie") ?? ""; return Object.fromEntries(cookie.split(";").map(part => part.trim().split("=")).filter(pair => pair.length === 2)); }
 async function sha256(value: string) { const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join(""); }
