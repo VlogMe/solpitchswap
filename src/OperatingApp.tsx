@@ -35,7 +35,7 @@ export default function OperatingApp() {
             ...project,
             name: metadata.name || project.name,
             symbol: metadata.symbol || project.symbol,
-            logoURI: metadata.logoUrl || project.logoURI,
+            logoURI: project.logoURI || metadata.logoUrl,
             pitch: metadata.pitch || project.pitch,
             description: metadata.description || project.description,
             marketCap: money(metadata.marketCap),
