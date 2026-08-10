@@ -70,7 +70,7 @@ function decodeBase58(value: string) {
       carry >>= 8;
     }
     while (carry) {
-      bytes.push(carry & 255);
+      bytes.push(carry & 255;
       carry >>= 8;
     }
   }
@@ -121,9 +121,8 @@ async function safeJson<T>(url: string): Promise<T | null> {
   }
 }
 
-async function isSolanaTokenMint(address: string, env: Env) {
+async function verifyMintWithRpc(address: string, rpc: string) {
   try {
-    const rpc = env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
     const response = await fetch(rpc, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
@@ -141,6 +140,19 @@ async function isSolanaTokenMint(address: string, env: Env) {
   } catch {
     return false;
   }
+}
+
+async function isSolanaTokenMint(address: string, env: Env) {
+  const rpcCandidates = [
+    env.SOLANA_RPC_URL?.trim(),
+    "https://api.mainnet-beta.solana.com",
+  ].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
+
+  for (const rpc of rpcCandidates) {
+    if (await verifyMintWithRpc(address, rpc)) return true;
+  }
+
+  return false;
 }
 
 async function enrichToken(address: string, base: Record<string, unknown>) {
