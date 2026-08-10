@@ -5,6 +5,7 @@ interface Env {
   ADMIN_PASSWORD: string;
   TURNSTILE_SECRET?: string;
   ALLOWED_ORIGIN: string;
+  SOLANA_RPC_URL?: string;
 }
 
 type MetadataProfile = {
@@ -120,6 +121,28 @@ async function safeJson<T>(url: string): Promise<T | null> {
   }
 }
 
+async function isSolanaTokenMint(address: string, env: Env) {
+  try {
+    const rpc = env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    const response = await fetch(rpc, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getTokenSupply",
+        params: [address, { commitment: "confirmed" }],
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return false;
+    const body = await response.json<{ result?: { value?: { decimals?: number; amount?: string } }; error?: unknown }>().catch(() => ({}));
+    return !body.error && typeof body.result?.value?.decimals === "number" && typeof body.result?.value?.amount === "string";
+  } catch {
+    return false;
+  }
+}
+
 async function enrichToken(address: string, base: Record<string, unknown>) {
   const [profiles, pump] = await Promise.all([
     safeJson<MetadataProfile[]>("https://api.dexscreener.com/token-profiles/latest/v1"),
@@ -179,9 +202,15 @@ export default {
     if (url.pathname === "/api/analyze-token" && request.method === "GET") {
       const address = (url.searchParams.get("address") ?? "").trim();
       if (!SOLANA_ADDRESS.test(address)) return json({ error: "Enter a valid Solana contract address." }, 400, cors);
+      if (!(await isSolanaTokenMint(address, env))) {
+        return json({ error: "This address could not be confirmed as a valid Solana token mint." }, 400, cors);
+      }
       const baseResponse = await baseWorker.fetch(request, env);
       const base = await baseResponse.json<Record<string, unknown>>().catch(() => ({}));
       if (!baseResponse.ok) return json(base, baseResponse.status, cors);
+      base.found = true;
+      base.address = address;
+      base.validSolanaMint = true;
       return json(await enrichToken(address, base), 200, { ...cors, "cache-control": "public, max-age=60" });
     }
 
