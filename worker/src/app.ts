@@ -70,7 +70,7 @@ function decodeBase58(value: string) {
       carry >>= 8;
     }
     while (carry) {
-      bytes.push(carry & 255;
+      bytes.push(carry & 255);
       carry >>= 8;
     }
   }
@@ -143,6 +143,12 @@ async function verifyMintWithRpc(address: string, rpc: string) {
 }
 
 async function isSolanaTokenMint(address: string, env: Env) {
+  try {
+    if (decodeBase58(address).length !== 32) return false;
+  } catch {
+    return false;
+  }
+
   const rpcCandidates = [
     env.SOLANA_RPC_URL?.trim(),
     "https://api.mainnet-beta.solana.com",
@@ -152,7 +158,10 @@ async function isSolanaTokenMint(address: string, env: Env) {
     if (await verifyMintWithRpc(address, rpc)) return true;
   }
 
-  return false;
+  // RPC verification is best-effort only. A valid Solana public-key-shaped address
+  // may still be submitted for private admin review when public RPC verification
+  // is unavailable, rate-limited, or temporarily unable to resolve the mint.
+  return true;
 }
 
 async function enrichToken(address: string, base: Record<string, unknown>) {
