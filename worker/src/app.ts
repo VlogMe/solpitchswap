@@ -223,6 +223,17 @@ export default {
     if (url.pathname === "/api/analyze-token" && request.method === "GET") {
       const address = (url.searchParams.get("address") ?? "").trim();
       if (!SOLANA_ADDRESS.test(address)) return json({ error: "Enter a valid Solana contract address." }, 400, cors);
+
+      const existingSubmission = await env.DB.prepare("SELECT id FROM submissions WHERE contract_address=?1 LIMIT 1")
+        .bind(address)
+        .first();
+      const existingProject = await env.DB.prepare("SELECT id FROM projects WHERE contract_address=?1 LIMIT 1")
+        .bind(address)
+        .first();
+      if (existingSubmission || existingProject) {
+        return json({ error: "This project has already been submitted.", duplicate: true }, 409, cors);
+      }
+
       if (!(await isSolanaTokenMint(address, env))) {
         return json({ error: "This address could not be confirmed as a valid Solana token mint." }, 400, cors);
       }
