@@ -114,6 +114,7 @@ export function SubmitProjectPanel({ onClose }: { onClose: () => void }) {
     setSuccess(false);
     onClose();
   }
+  // Submitted is a standalone render state so the form overlay cannot remain mounted behind the success popup.
   if (submitted) {
     return <div className="submission-success-backdrop" role="presentation"><section className="submission-success-popup" role="dialog" aria-modal="true" aria-labelledby="submission-success-title"><div className="submission-success-icon">✓</div><h2 id="submission-success-title">Listing Submitted!</h2><p>Your listing suggestion has been received and is now pending private SolPitch admin review.</p><small>It is not public yet. If approved, it will appear on the SolPitch Network.</small><button className="submission-home-link" type="button" onClick={closeSubmitted}>Back to home</button></section></div>;
   }
