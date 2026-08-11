@@ -131,6 +131,15 @@
             }
           });
 
+          const navRail = document.querySelector('.nav-rail');
+          const upperNav = navRail?.querySelector(':scope > nav:first-of-type');
+          Array.from(upperNav?.querySelectorAll(':scope > button') ?? []).forEach((button) => {
+            if (['Most voted', 'Swap enabled', 'Verified owners'].includes(button.textContent?.trim())) button.remove();
+          });
+          const categoriesLabel = Array.from(navRail?.querySelectorAll(':scope > p') ?? []).find((label) => label.textContent?.trim() === 'CATEGORIES');
+          categoriesLabel?.nextElementSibling?.remove();
+          categoriesLabel?.remove();
+
           const projectsNav = Array.from(document.querySelectorAll('.nav-rail > p')).find((label) => label.textContent?.trim() === 'FOR PROJECTS')?.nextElementSibling;
           Array.from(projectsNav?.querySelectorAll(':scope > button') ?? []).find((button) => button.textContent?.trim() === 'Claim a project')?.remove();
 
