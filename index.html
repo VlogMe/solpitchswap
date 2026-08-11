@@ -131,6 +131,9 @@
             }
           });
 
+          const projectsNav = Array.from(document.querySelectorAll('.nav-rail > p')).find((label) => label.textContent?.trim() === 'FOR PROJECTS')?.nextElementSibling;
+          Array.from(projectsNav?.querySelectorAll(':scope > button') ?? []).find((button) => button.textContent?.trim() === 'Claim a project')?.remove();
+
           const detailClaimButton = document.querySelector('.project-detail .detail-hero > .detail-actions .claim-button');
           if (detailClaimButton && (detailClaimButton.textContent?.trim() === 'Claim official ownership' || detailClaimButton.textContent?.trim() === 'Claim ownership')) {
             detailClaimButton.textContent = 'Claim';
