@@ -23,7 +23,7 @@ export function ClaimProjectPanel({ project, onClose }: { project: Project; onCl
   const [success, setSuccess] = useState(false);
 
   async function claim(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setMessage(""); setSuccess(false);
+    event.preventDefault(); const form = event.currentTarget; setBusy(true); setMessage(""); setSuccess(false);
     try {
       const provider = window.solana;
       if (!provider?.isPhantom) throw new Error("Phantom was not detected. Install or open Phantom, then try again.");
@@ -31,7 +31,6 @@ export function ClaimProjectPanel({ project, onClose }: { project: Project; onCl
       const walletAddress = connection.publicKey.toString();
       const { nonce, message: signText } = await createClaimNonce(project.slug, walletAddress);
       const signed = await provider.signMessage(new TextEncoder().encode(signText), "utf8");
-      const form = event.currentTarget;
       const data = new FormData(form);
       await submitClaim({
         nonce,
