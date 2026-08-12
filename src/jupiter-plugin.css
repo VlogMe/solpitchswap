@@ -1,0 +1,13 @@
+:root {
+  --jupiter-plugin-primary: 139, 92, 246;
+  --jupiter-plugin-background: 10, 12, 18;
+  --jupiter-plugin-primaryText: 240, 242, 248;
+  --jupiter-plugin-warning: 251, 191, 36;
+  --jupiter-plugin-interactive: 30, 34, 46;
+  --jupiter-plugin-module: 18, 21, 30;
+}
+
+.solpitch-jupiter-plugin {
+  width: 100%;
+  min-height: 520px;
+}
