@@ -30,7 +30,7 @@ async function isAdmin(request: Request, env: Env) {
   const url = new URL(request.url);
   url.pathname = "/api/admin/session";
   url.search = "";
-  const sessionResponse = await baseWorker.fetch(new Request(url.toString(), request), env);
+  const sessionResponse = await baseWorker.fetch(new Request(url.toString(), { headers: request.headers, method: "GET" }), env);
   if (!sessionResponse.ok) return false;
   const body = await sessionResponse.json<{ authenticated?: boolean }>().catch(() => ({}));
   return body.authenticated === true;
