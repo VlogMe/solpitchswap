@@ -12,9 +12,9 @@ async function lookupToken(mint:string){
  const pair=Array.isArray(dex?.pairs)?dex!.pairs![0]:undefined;
  const base=(pair?.baseToken??{}) as Record<string,unknown>;const quote=(pair?.quoteToken??{}) as Record<string,unknown>;
  const token=String(base.address??"")===mint?base:String(quote.address??"")===mint?quote:base;
- if(token.symbol){return {symbol:String(token.symbol),name:String(token.name??token.symbol),mint,decimals:6,logoURI:undefined}}
  const pump=await tryJson(`https://frontend-api-v3.pump.fun/coins-v2/${encodeURIComponent(mint)}`);
  if(pump?.symbol){return {symbol:String(pump.symbol),name:String(pump.name??pump.symbol),mint,decimals:6,logoURI:String(pump.image_uri??"")||undefined}}
+ if(token.symbol){return {symbol:String(token.symbol),name:String(token.name??token.symbol),mint,decimals:6,logoURI:undefined}}
  throw new Error("Token metadata could not be loaded. Confirm the CA is live/bonded and tradable with sufficient liquidity for a Jupiter route. Jupiter has no fixed dollar minimum; routability depends on pool depth and price impact.");
 }
 
