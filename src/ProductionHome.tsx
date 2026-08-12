@@ -57,8 +57,10 @@ function ProjectCard({
   return <article className="listing-card" data-project-slug={project.slug}>
     <div className="listing-top"><ProjectAvatar project={project}/><div className="coin-title"><div><h3>{project.name}</h3><span>${project.symbol}</span></div><div className="tag-row"><span className="status status-launched">{project.category}</span><OwnershipBadge project={project}/>{rank <= 10 && <span className="top-ten">Top 10</span>}{project.addedToSwap && <span className="claim-verified">Swap enabled</span>}{project.promoted && <span className="featured">Featured</span>}</div></div><button className={`favorite ${favorite ? "selected" : ""}`} onClick={onFavorite}>{favorite ? "♥" : "♡"}</button><button className="vote animated-count">▲ {project.votes}</button></div>
     <p>{project.pitch || "No public short description has been provided."}</p>
-    <button className="ca" onClick={() => navigator.clipboard?.writeText(project.contractAddress)}>{project.contractAddress.slice(0,10)}…{project.contractAddress.slice(-7)} <b>Copy CA</b></button>
-    <div>Listed {project.listedLabel}</div>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+      <button className="ca" onClick={() => navigator.clipboard?.writeText(project.contractAddress)}>{project.contractAddress.slice(0,10)}…{project.contractAddress.slice(-7)} <b>Copy CA</b></button>
+      <span style={{ fontSize: ".72rem", color: "#9ba4b8", whiteSpace: "nowrap" }}>Listed {project.listedLabel}</span>
+    </div>
     <div className="listing-footer"><div className="listing-actions"><button className="ghost" onClick={onOpen}>View project</button>{project.claimStatus === "unclaimed" && <button className="claim-button">Claim project</button>}<button className="primary" type="button" onClick={() => loadProjectInNativeSwap(project)}>Buy ${project.symbol}</button><button className="ghost" type="button" onClick={() => shareProjectOnX(project)}>𝕏 Share</button></div></div>
   </article>;
 }
