@@ -129,18 +129,21 @@ export default {
       const tableRows = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
       const tables = new Set((tableRows.results ?? []).map(row => row.name));
       const statements: D1PreparedStatement[] = [];
-      const relatedTables = ["project_owners", "claim_requests", "wallet_votes", "activity_events"];
+      const relatedTables = ["project_owners", "claim_requests", "claim_nonces", "wallet_votes", "vote_nonces", "activity_events"];
       for (const table of relatedTables) {
         if (tables.has(table)) statements.push(env.DB.prepare(`DELETE FROM ${table} WHERE project_id = ?1`).bind(id));
       }
       if (tables.has("submissions")) {
-        statements.push(env.DB.prepare("DELETE FROM submissions WHERE contract_address = ?1").bind(existing.contract_address));
+        statements.push(env.DB.prepare("DELETE FROM submissions WHERE TRIM(contract_address) = TRIM(?1)").bind(existing.contract_address));
       }
       statements.push(env.DB.prepare("DELETE FROM projects WHERE id = ?1").bind(id));
       await env.DB.batch(statements);
 
       const remaining = await env.DB.prepare("SELECT id FROM projects WHERE id = ?1 LIMIT 1").bind(id).first();
-      if (remaining) return json({ error: "Project could not be deleted." }, 500, cors);
+      const remainingSubmission = tables.has("submissions")
+        ? await env.DB.prepare("SELECT id FROM submissions WHERE TRIM(contract_address) = TRIM(?1) LIMIT 1").bind(existing.contract_address).first()
+        : null;
+      if (remaining || remainingSubmission) return json({ error: "Project could not be deleted completely." }, 500, cors);
       return json({ ok: true }, 200, cors);
     }
 
