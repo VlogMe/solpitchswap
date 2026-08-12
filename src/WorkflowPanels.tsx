@@ -53,7 +53,6 @@ export function SubmitProjectPanel({ onClose }: { onClose: () => void }) {
       fillEmpty("website", result.website);
       fillEmpty("xUrl", result.xUrl);
       fillEmpty("telegramUrl", result.telegramUrl);
-      fillEmpty("pitch", result.pitch || result.description?.replace(/\s+/g, " ").slice(0, 300));
       fillEmpty("description", result.description);
       setSuccess(true);
       const metadataNote = result.descriptionFound

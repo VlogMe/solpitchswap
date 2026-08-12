@@ -209,7 +209,6 @@ async function enrichToken(address: string, base: Record<string, unknown>) {
     xUrl,
     telegramUrl,
     description,
-    pitch: description ? description.replace(/\s+/g, " ").slice(0, 300) : "",
     metadataSource,
     descriptionFound: Boolean(description),
   };
