@@ -57,7 +57,7 @@ function JupiterPlugin() {
         integratedTargetId: JUPITER_TARGET_ID,
         containerStyles: {
           width: "100%",
-          height: "480px",
+          height: "380px",
           borderRadius: "16px",
           overflow: "hidden",
         },
