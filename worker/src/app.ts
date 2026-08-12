@@ -167,7 +167,7 @@ async function isSolanaTokenMint(address: string, env: Env) {
 async function enrichToken(address: string, base: Record<string, unknown>) {
   const [profiles, pump] = await Promise.all([
     safeJson<MetadataProfile[]>("https://api.dexscreener.com/token-profiles/latest/v1"),
-    safeJson<PumpMetadata>(`https://frontend-api.pump.fun/coins/${encodeURIComponent(address)}`),
+    safeJson<PumpMetadata>(`https://frontend-api-v3.pump.fun/coins-v2/${encodeURIComponent(address)}`),
   ]);
 
   const profile = Array.isArray(profiles)
