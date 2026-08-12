@@ -9,6 +9,7 @@ declare global {
         displayMode: "integrated";
         integratedTargetId: string;
         containerStyles?: Record<string, string>;
+        formProps?: { initialOutputMint?: string };
       }) => void;
       close?: () => void;
     };
@@ -49,8 +50,8 @@ function JupiterPlugin() {
   useEffect(() => {
     let cancelled = false;
 
-    void loadJupiterPlugin().then(() => {
-      if (cancelled || !window.Jupiter) return;
+    const initJupiter = (outputMint?: string) => {
+      if (!window.Jupiter) return;
 
       window.Jupiter.init({
         displayMode: "integrated",
@@ -61,11 +62,26 @@ function JupiterPlugin() {
           borderRadius: "16px",
           overflow: "hidden",
         },
+        ...(outputMint ? { formProps: { initialOutputMint: outputMint } } : {}),
       });
+    };
+
+    void loadJupiterPlugin().then(() => {
+      if (cancelled || !window.Jupiter) return;
+
+      initJupiter();
     });
+
+    const handleListedToken = (event: Event) => {
+      const mint = (event as CustomEvent<{ mint?: string }>).detail?.mint;
+      if (mint) initJupiter(mint);
+    };
+
+    window.addEventListener("solpitch:load-listed-token", handleListedToken);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("solpitch:load-listed-token", handleListedToken);
       window.Jupiter?.close?.();
     };
   }, []);
