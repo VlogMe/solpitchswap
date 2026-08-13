@@ -9,6 +9,8 @@ interface Env {
   ALLOWED_ORIGIN: string;
   SOLANA_RPC_URL?: string;
   JUPITER_API_URL?: string;
+  X_CLIENT_ID: string;
+  X_CLIENT_SECRET: string;
 }
 
 type LiveSubmission = {
