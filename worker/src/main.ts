@@ -36,6 +36,11 @@ async function hashToken(token: string): Promise<string> {
     .join("");
 }
 
+type XSession = {
+  x_user_id: string;
+  x_username: string;
+};
+
 type LiveSubmission = {
   name?: string;
   symbol?: string;
@@ -58,6 +63,8 @@ type ClaimSubmission = {
 };
 
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const X_SESSION_COOKIE = "solpitch_x_session";
+const X_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
@@ -93,11 +100,36 @@ function workerError(error: unknown, cors: HeadersInit) {
   });
 }
 
-function json(data: unknown, status = 200) {
+function json(data: unknown, status = 200, headers: HeadersInit = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: { "content-type": "application/json; charset=utf-8", ...headers },
   });
+}
+
+function parseCookies(request: Request) {
+  const cookies = request.headers.get("cookie") ?? "";
+  return Object.fromEntries(
+    cookies
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separator = part.indexOf("=");
+        return separator < 0 ? [part, ""] : [part.slice(0, separator), part.slice(separator + 1)];
+      }),
+  );
+}
+
+async function getXSession(request: Request, env: Env): Promise<XSession | null> {
+  const sessionToken = parseCookies(request)[X_SESSION_COOKIE];
+  if (!sessionToken) return null;
+
+  const row = await env.DB.prepare(
+    "SELECT x_user_id, x_username FROM x_sessions WHERE token_hash = ?1 AND expires_at > ?2 LIMIT 1",
+  ).bind(await hashToken(sessionToken), Date.now()).first<XSession>();
+
+  return row ?? null;
 }
 
 function slugify(name: string, symbol: string) {
@@ -190,7 +222,7 @@ async function submitPendingClaim(request: Request, env: Env) {
   return json({ id, status: "pending" }, 201);
 }
 
-async function publishAcceptedSubmission(request: Request, env: Env) {
+async function publishAcceptedSubmission(request: Request, env: Env, xSession: XSession) {
   const input = await request.clone().json<LiveSubmission>().catch(() => null);
   const response = await listingsWorker.fetch(request, env);
   if (!response.ok || !input) return response;
@@ -206,22 +238,27 @@ async function publishAcceptedSubmission(request: Request, env: Env) {
   const slug = slugify(name, symbol);
 
   await env.DB.batch([
-    env.DB.prepare(`INSERT INTO projects (id,slug,name,symbol,contract_address,project_status,claim_status,pitch,description,website,x_url,telegram_url,logo_url,added_to_swap,promoted,votes) VALUES (?1,?2,?3,?4,?5,?6,'unclaimed',?7,?8,?9,?10,?11,?12,0,0,0)`)
-      .bind(
-        projectId,
-        slug,
-        name,
-        symbol,
-        contractAddress,
-        projectStatus,
-        String(input.pitch || "").trim(),
-        String(input.description || "").trim(),
-        String(input.website || "").trim() || null,
-        String(input.xUrl || "").trim() || null,
-        String(input.telegramUrl || "").trim() || null,
-        String(input.logoUrl || "").trim() || null,
-      ),
-    env.DB.prepare("UPDATE submissions SET status='approved', reviewed_at=CURRENT_TIMESTAMP WHERE id=?1").bind(result.id),
+    env.DB.prepare(
+      `INSERT INTO projects (id,slug,name,symbol,contract_address,project_status,claim_status,pitch,description,website,x_url,telegram_url,logo_url,added_to_swap,promoted,votes,x_user_id,x_username) VALUES (?1,?2,?3,?4,?5,?6,'unclaimed',?7,?8,?9,?10,?11,?12,0,0,0,?13,?14)`,
+    ).bind(
+      projectId,
+      slug,
+      name,
+      symbol,
+      contractAddress,
+      projectStatus,
+      String(input.pitch || "").trim(),
+      String(input.description || "").trim(),
+      String(input.website || "").trim() || null,
+      String(input.xUrl || "").trim() || null,
+      String(input.telegramUrl || "").trim() || null,
+      String(input.logoUrl || "").trim() || null,
+      xSession.x_user_id,
+      xSession.x_username,
+    ),
+    env.DB.prepare(
+      "UPDATE submissions SET status='approved', reviewed_at=CURRENT_TIMESTAMP, x_user_id=?2, x_username=?3 WHERE id=?1",
+    ).bind(result.id, xSession.x_user_id, xSession.x_username),
   ]);
 
   return new Response(JSON.stringify({ ...result, projectId, slug, status: "live" }), {
@@ -255,102 +292,124 @@ export default {
       if (swapResponse) return withCors(swapResponse, cors);
 
       if (url.pathname === "/api/auth/x/callback" && request.method === "GET") {
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
+        const code = url.searchParams.get("code");
+        const state = url.searchParams.get("state");
 
-  if (!code || !state) {
-    return Response.redirect("https://solpitch.com/?auth=error", 302);
-  }
+        if (!code || !state) {
+          return Response.redirect("https://solpitch.com/?auth=error", 302);
+        }
 
-  const row = await env.DB.prepare(
-    "SELECT code_verifier FROM x_oauth_states WHERE state = ?1 LIMIT 1"
-  ).bind(state).first<{ code_verifier: string }>();
+        const row = await env.DB.prepare(
+          "SELECT code_verifier FROM x_oauth_states WHERE state = ?1 LIMIT 1",
+        ).bind(state).first<{ code_verifier: string }>();
 
-  if (!row) {
-    return Response.redirect("https://solpitch.com/?auth=error", 302);
-  }
+        if (!row) {
+          return Response.redirect("https://solpitch.com/?auth=error", 302);
+        }
 
-  // Delete the used state
-  await env.DB.prepare("DELETE FROM x_oauth_states WHERE state = ?1").bind(state).run();
+        await env.DB.prepare("DELETE FROM x_oauth_states WHERE state = ?1").bind(state).run();
 
-  // Exchange code for access token
-  const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: "Basic " + btoa(`${env.X_CLIENT_ID}:${env.X_CLIENT_SECRET}`),
-    },
-    body: new URLSearchParams({
-      code,
-      grant_type: "authorization_code",
-      redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
-      code_verifier: row.code_verifier,
-    }),
-  });
+        const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: "Basic " + btoa(`${env.X_CLIENT_ID}:${env.X_CLIENT_SECRET}`),
+          },
+          body: new URLSearchParams({
+            code,
+            grant_type: "authorization_code",
+            redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
+            code_verifier: row.code_verifier,
+          }),
+        });
 
-  if (!tokenRes.ok) {
-    return Response.redirect("https://solpitch.com/?auth=error", 302);
-  }
+        if (!tokenRes.ok) {
+          return Response.redirect("https://solpitch.com/?auth=error", 302);
+        }
 
-  const tokenData = await tokenRes.json() as { access_token?: string };
-  if (!tokenData.access_token) {
-    return Response.redirect("https://solpitch.com/?auth=error", 302);
-  }
+        const tokenData = await tokenRes.json() as { access_token?: string };
+        if (!tokenData.access_token) {
+          return Response.redirect("https://solpitch.com/?auth=error", 302);
+        }
 
-  // Get user info
-  const userRes = await fetch("https://api.x.com/2/users/me", {
-    headers: { Authorization: `Bearer ${tokenData.access_token}` },
-  });
+        const userRes = await fetch("https://api.x.com/2/users/me", {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
 
-  if (!userRes.ok) {
-    return Response.redirect("https://solpitch.com/?auth=error", 302);
-  }
+        if (!userRes.ok) {
+          return Response.redirect("https://solpitch.com/?auth=error", 302);
+        }
 
-  const userData = await userRes.json() as { data?: { id: string; username: string } };
-  if (!userData.data?.id || !userData.data?.username) {
-    return Response.redirect("https://solpitch.com/?auth=error", 302);
-  }
+        const userData = await userRes.json() as { data?: { id: string; username: string } };
+        if (!userData.data?.id || !userData.data?.username) {
+          return Response.redirect("https://solpitch.com/?auth=error", 302);
+        }
 
-  const sessionToken = generateRandomString(48);
-  const tokenHash = await hashToken(sessionToken);
-  const expiresAt = Date.now() + 1000 * 60 * 60 * 24 * 30; // 30 days
+        const sessionToken = generateRandomString(48);
+        const tokenHash = await hashToken(sessionToken);
+        const expiresAt = Date.now() + X_SESSION_MAX_AGE * 1000;
 
-  await env.DB.prepare(
-    "INSERT INTO x_sessions (token_hash, x_user_id, x_username, expires_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-  ).bind(tokenHash, userData.data.id, userData.data.username, expiresAt, Date.now()).run();
+        await env.DB.prepare(
+          "INSERT INTO x_sessions (token_hash, x_user_id, x_username, expires_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        ).bind(tokenHash, userData.data.id, userData.data.username, expiresAt, Date.now()).run();
 
-  const headers = new Headers();
-  headers.set("Location", "https://solpitch.com/?auth=success");
-  headers.set("Set-Cookie", `solpitch_x_session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=2592000`);
+        const headers = new Headers();
+        headers.set("Location", "https://solpitch.com/?auth=success");
+        headers.set("Set-Cookie", `${X_SESSION_COOKIE}=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${X_SESSION_MAX_AGE}`);
 
-  return new Response(null, { status: 302, headers });
-}
-
-      if (url.pathname === "/api/submissions" && request.method === "POST") {
-        return withCors(await publishAcceptedSubmission(request, env), cors);
+        return new Response(null, { status: 302, headers });
       }
 
       if (url.pathname === "/api/auth/x/login" && request.method === "GET") {
-  const state = generateRandomString(32);
-  const codeVerifier = generateRandomString(64);
-  const codeChallenge = await sha256Base64Url(codeVerifier);
+        const state = generateRandomString(32);
+        const codeVerifier = generateRandomString(64);
+        const codeChallenge = await sha256Base64Url(codeVerifier);
 
-  await env.DB.prepare(
-    "INSERT INTO x_oauth_states (state, code_verifier, created_at) VALUES (?1, ?2, ?3)"
-  ).bind(state, codeVerifier, Date.now()).run();
+        await env.DB.prepare(
+          "INSERT INTO x_oauth_states (state, code_verifier, created_at) VALUES (?1, ?2, ?3)",
+        ).bind(state, codeVerifier, Date.now()).run();
 
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: env.X_CLIENT_ID,
-    redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
-    scope: "users.read",
-    state,
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
-  });
+        const params = new URLSearchParams({
+          response_type: "code",
+          client_id: env.X_CLIENT_ID,
+          redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
+          scope: "users.read",
+          state,
+          code_challenge: codeChallenge,
+          code_challenge_method: "S256",
+        });
 
-  return Response.redirect(`https://x.com/i/oauth2/authorize?${params.toString()}`, 302);
-}
+        return Response.redirect(`https://x.com/i/oauth2/authorize?${params.toString()}`, 302);
+      }
+
+      if (url.pathname === "/api/auth/x/session" && request.method === "GET") {
+        const xSession = await getXSession(request, env);
+        return withCors(json(xSession ? {
+          authenticated: true,
+          userId: xSession.x_user_id,
+          username: xSession.x_username,
+        } : { authenticated: false }), cors);
+      }
+
+      if (url.pathname === "/api/auth/x/logout" && request.method === "POST") {
+        const sessionToken = parseCookies(request)[X_SESSION_COOKIE];
+        if (sessionToken) {
+          await env.DB.prepare("DELETE FROM x_sessions WHERE token_hash = ?1")
+            .bind(await hashToken(sessionToken))
+            .run();
+        }
+        return withCors(json({ ok: true }, 200, {
+          "set-cookie": `${X_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0`,
+        }), cors);
+      }
+
+      if (url.pathname === "/api/submissions" && request.method === "POST") {
+        const xSession = await getXSession(request, env);
+        if (!xSession) {
+          return withCors(json({ error: "Sign in with X before submitting a project." }, 401), cors);
+        }
+        return withCors(await publishAcceptedSubmission(request, env, xSession), cors);
+      }
 
       if (url.pathname === "/api/claims" && request.method === "POST") {
         return withCors(await submitPendingClaim(request, env), cors);
