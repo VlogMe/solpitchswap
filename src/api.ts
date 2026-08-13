@@ -18,7 +18,15 @@ export type TokenAnalysis = { found:boolean; address:string; tradable:boolean; n
 export type ClaimRequest = { id:string; projectName:string; projectSymbol:string; projectSlug:string; walletAddress:string; evidenceUrl:string; submitterEmail:string; createdAt:string };
 export type ActivityEvent = { id:string; projectId?:string; eventType:string; eventText:string; createdAt:string; slug?:string; name?:string; symbol?:string; logoUrl?:string };
 export type SubmissionPayload = { name:string; symbol:string; contractAddress:string; projectStatus:ProjectStatus; pitch:string; description:string; website?:string; xUrl?:string; telegramUrl?:string; logoUrl?:string; statusProofUrl:string; submitterEmail:string; turnstileToken?:string };
+export type XSession = { authenticated:boolean; username?:string; userId?:string };
+export type MyProjectUpdate = { name?:string; pitch?:string; description?:string; website?:string; xUrl?:string; telegramUrl?:string; logoUrl?:string };
 
+export function getXLoginUrl(){return `${API_BASE}/api/auth/x/login`;}
+export async function getXSession(){return request<XSession>('/api/auth/x/session');}
+export async function logoutX(){return request<{ok:true}>('/api/auth/x/logout',{method:'POST',body:'{}'});}
+export async function getMyProjects(){const result=await request<{projects:Record<string,unknown>[]}>('/api/my/projects');return result.projects.map(mapProjectRow);}
+export async function updateMyProject(id:string,payload:MyProjectUpdate){return request<{ok:true}>(`/api/my/projects/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(payload)});}
+export async function deleteMyProject(id:string){return request<{ok:true}>(`/api/my/projects/${encodeURIComponent(id)}`,{method:'DELETE'});}
 export async function analyzeToken(address:string){return request<TokenAnalysis>(`/api/analyze-token?address=${encodeURIComponent(address)}`);}
 export async function getPublishedProjects(){const result=await request<{projects:Record<string,unknown>[]}>('/api/projects');return result.projects.map(mapProjectRow);}
 export async function getActivity(){const result=await request<{events:Record<string,unknown>[]}>('/api/activity');return result.events.map(row=>({id:String(row.id),projectId:String(row.project_id??'')||undefined,eventType:String(row.event_type),eventText:String(row.event_text),createdAt:String(row.created_at),slug:String(row.slug??'')||undefined,name:String(row.name??'')||undefined,symbol:String(row.symbol??'')||undefined,logoUrl:String(row.logo_url??'')||undefined}));}
@@ -53,6 +61,7 @@ function mapProjectRow(row:Record<string,unknown>):Project{
     badges:promoted?["Community Listed","Featured"]:["Community Listed"],logoURI:String(row.logo_url??'')||undefined,
     marketCap:'Updating…',liquidity:'Updating…',volume24h:'Updating…',holders:'Unavailable',votes:Number(row.votes??0),
     addedToSwap:Number(row.added_to_swap??0)===1,promoted,listedLabel:publishedAt?new Date(publishedAt).toLocaleDateString():"Recently",publishedAt,
+    xUserId:String(row.x_user_id??'')||undefined,xUsername:String(row.x_username??'')||undefined,
     links:{website:String(row.website??'')||undefined,x:String(row.x_url??'')||undefined,telegram:String(row.telegram_url??'')||undefined}
   };
 }
