@@ -254,6 +254,78 @@ export default {
       const swapResponse = await handleSwapRequest(request, env, cors);
       if (swapResponse) return withCors(swapResponse, cors);
 
+      if (url.pathname === "/api/auth/x/callback" && request.method === "GET") {
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+
+  if (!code || !state) {
+    return Response.redirect("https://solpitch.com/?auth=error", 302);
+  }
+
+  const row = await env.DB.prepare(
+    "SELECT code_verifier FROM x_oauth_states WHERE state = ?1 LIMIT 1"
+  ).bind(state).first<{ code_verifier: string }>();
+
+  if (!row) {
+    return Response.redirect("https://solpitch.com/?auth=error", 302);
+  }
+
+  // Delete the used state
+  await env.DB.prepare("DELETE FROM x_oauth_states WHERE state = ?1").bind(state).run();
+
+  // Exchange code for access token
+  const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: "Basic " + btoa(`${env.X_CLIENT_ID}:${env.X_CLIENT_SECRET}`),
+    },
+    body: new URLSearchParams({
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
+      code_verifier: row.code_verifier,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    return Response.redirect("https://solpitch.com/?auth=error", 302);
+  }
+
+  const tokenData = await tokenRes.json() as { access_token?: string };
+  if (!tokenData.access_token) {
+    return Response.redirect("https://solpitch.com/?auth=error", 302);
+  }
+
+  // Get user info
+  const userRes = await fetch("https://api.x.com/2/users/me", {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+
+  if (!userRes.ok) {
+    return Response.redirect("https://solpitch.com/?auth=error", 302);
+  }
+
+  const userData = await userRes.json() as { data?: { id: string; username: string } };
+  if (!userData.data?.id || !userData.data?.username) {
+    return Response.redirect("https://solpitch.com/?auth=error", 302);
+  }
+
+  const sessionToken = generateRandomString(48);
+  const tokenHash = await hashToken(sessionToken);
+  const expiresAt = Date.now() + 1000 * 60 * 60 * 24 * 30; // 30 days
+
+  await env.DB.prepare(
+    "INSERT INTO x_sessions (token_hash, x_user_id, x_username, expires_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+  ).bind(tokenHash, userData.data.id, userData.data.username, expiresAt, Date.now()).run();
+
+  const headers = new Headers();
+  headers.set("Location", "https://solpitch.com/?auth=success");
+  headers.set("Set-Cookie", `solpitch_x_session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=2592000`);
+
+  return new Response(null, { status: 302, headers });
+}
+
       if (url.pathname === "/api/submissions" && request.method === "POST") {
         return withCors(await publishAcceptedSubmission(request, env), cors);
       }
