@@ -46,8 +46,8 @@ jobs:
           import os, re
           path = Path('site/index.html')
           text = path.read_text()
-          text = re.sub(r"/solpitchswap/assets/index-[^\"']+\.js", f"/solpitchswap/assets/{os.environ['NEW_JS']}", text, count=1)
-          text = re.sub(r"/solpitchswap/assets/index-[^\"']+\.css", f"/solpitchswap/assets/{os.environ['NEW_CSS']}", text, count=1)
+          text = re.sub(r"/solpitchswap/assets/index-[^\"']+\.js", f"/assets/{os.environ['NEW_JS']}", text, count=1)
+          text = re.sub(r"/solpitchswap/assets/index-[^\"']+\.css", f"/assets/{os.environ['NEW_CSS']}", text, count=1)
           path.write_text(text)
           PY
           cd site
