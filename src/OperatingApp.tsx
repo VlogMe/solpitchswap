@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import ProductionHome from "./ProductionHome";
-import { analyzeToken, createVoteNonce, getPublishedProjects, submitVote } from "./api";
+import { analyzeToken, createVoteNonce, getAdminSession, getPublishedProjects, submitVote } from "./api";
 import { AdminPanel, SubmitProjectPanel } from "./WorkflowPanels";
 import { AdminClaimsPanel, ClaimProjectPanel } from "./ClaimPanels";
 import AdminProjectsPanel from "./AdminProjectsPanel";
@@ -20,6 +20,8 @@ export default function OperatingApp() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [projectError, setProjectError] = useState("");
   const [voteBusy, setVoteBusy] = useState(false);
+  const [adminRoute, setAdminRoute] = useState(() => window.location.hash === "#/admin-login");
+  const [adminAuthenticated, setAdminAuthenticated] = useState(false);
 
   const refreshProjects = useCallback(async () => {
     setLoadingProjects(true); setProjectError("");
@@ -60,6 +62,35 @@ export default function OperatingApp() {
   useEffect(() => { void refreshProjects(); }, [refreshProjects]);
 
   useEffect(() => {
+    const sync = () => {
+      const active = window.location.hash === "#/admin-login";
+      setAdminRoute(active);
+      if (!active) {
+        setAdminAuthenticated(false);
+        setPanel(null);
+      }
+    };
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!adminRoute) return;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const session = await getAdminSession();
+        if (!cancelled) setAdminAuthenticated(session.authenticated);
+      } catch {
+        if (!cancelled) setAdminAuthenticated(false);
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 1200);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [adminRoute]);
+
+  useEffect(() => {
     const capture = async (event: MouseEvent) => {
       const button = (event.target as HTMLElement).closest("button"); if (!button) return;
       const text = button.textContent?.trim().toLowerCase() ?? "";
@@ -95,13 +126,21 @@ export default function OperatingApp() {
     document.addEventListener("click", capture, true); return () => document.removeEventListener("click", capture, true);
   }, [projects, refreshProjects, voteBusy]);
 
+  if (adminRoute) {
+    if (!adminAuthenticated) {
+      return <AdminPanel onClose={() => { window.location.hash = "#/"; }} onPublished={() => void refreshProjects()} />;
+    }
+    return <>
+      <div className="workflow-overlay"><section className="workflow-shell admin-shell"><span className="eyebrow">PRIVATE ADMIN</span><div className="admin-heading"><div><h1>SolPitch Admin</h1><p>Private administration workspace</p></div></div><div className="operations-dock" style={{ position: "static", margin: "22px 0 0", width: "100%", justifyContent: "center" }}><span className={projectError ? "db-preview" : "db-live"}>{projectError ? "D1 ERROR" : "D1 LIVE"}</span><button onClick={() => setPanel("projects")}>Projects</button><button onClick={() => setPanel("claims")}>Claims</button><button onClick={() => setPanel("admin")}>Submissions</button></div><p className="workflow-intro" style={{ marginTop: "18px" }}>Bookmark https://solpitch.com/#/admin-login for private admin access.</p><a href="#/" style={{ color: "#b393ff", fontWeight: 800 }}>← Return to public site</a></section></div>
+      {panel === "admin" && <AdminPanel onClose={() => setPanel(null)} onPublished={() => void refreshProjects()} />}
+      {panel === "claims" && <AdminClaimsPanel onClose={() => setPanel(null)} onApproved={() => { void refreshProjects(); }} />}
+      {panel === "projects" && <AdminProjectsPanel onClose={() => setPanel(null)} onChanged={() => { void refreshProjects(); }} />}
+    </>;
+  }
+
   return <>
     <ProductionHome projects={projects} loading={loadingProjects} error={projectError} onRetry={() => void refreshProjects()} />
-    <div className="operations-dock"><span className={projectError ? "db-preview" : "db-live"}>{projectError ? "D1 ERROR" : "D1 LIVE"}</span><button onClick={() => setPanel("projects")}>Projects</button><button onClick={() => setPanel("claims")}>Claims</button><button onClick={() => setPanel("admin")}>Submissions</button></div>
     {panel === "submit" && <SubmitProjectPanel onClose={() => setPanel(null)} />}
-    {panel === "admin" && <AdminPanel onClose={() => setPanel(null)} onPublished={() => void refreshProjects()} />}
-    {panel === "claims" && <AdminClaimsPanel onClose={() => setPanel(null)} onApproved={() => { void refreshProjects(); }} />}
-    {panel === "projects" && <AdminProjectsPanel onClose={() => setPanel(null)} onChanged={() => { void refreshProjects(); }} />}
     {claimProject && <ClaimProjectPanel project={claimProject} onClose={() => setClaimProject(null)} />}
   </>;
 }
