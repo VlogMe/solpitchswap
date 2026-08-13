@@ -24,6 +24,16 @@ type LiveSubmission = {
   logoUrl?: string;
 };
 
+type ClaimSubmission = {
+  nonce?: string;
+  walletAddress?: string;
+  signature?: string;
+  evidenceUrl?: string;
+  submitterEmail?: string;
+};
+
+const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
   if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
@@ -58,9 +68,101 @@ function workerError(error: unknown, cors: HeadersInit) {
   });
 }
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
 function slugify(name: string, symbol: string) {
   const base = `${name}-${symbol}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70);
   return `${base}-${crypto.randomUUID().slice(0, 6)}`;
+}
+
+function decodeBase58(value: string) {
+  const bytes = [0];
+  for (const char of value) {
+    const digit = BASE58.indexOf(char);
+    if (digit < 0) throw new Error("Invalid base58 value.");
+    let carry = digit;
+    for (let index = 0; index < bytes.length; index += 1) {
+      carry += bytes[index] * 58;
+      bytes[index] = carry & 255;
+      carry >>= 8;
+    }
+    while (carry) {
+      bytes.push(carry & 255);
+      carry >>= 8;
+    }
+  }
+  for (let index = 0; index < value.length - 1 && value[index] === "1"; index += 1) bytes.push(0);
+  return new Uint8Array(bytes.reverse());
+}
+
+function decodeBase64(value: string) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+async function verifyWalletSignature(walletAddress: string, message: string, signatureBase64: string) {
+  try {
+    const publicKey = decodeBase58(walletAddress);
+    const signature = decodeBase64(signatureBase64);
+    if (publicKey.length !== 32 || signature.length !== 64) return false;
+    const key = await crypto.subtle.importKey("raw", publicKey, { name: "Ed25519" }, false, ["verify"]);
+    return await crypto.subtle.verify("Ed25519", key, signature, new TextEncoder().encode(message));
+  } catch {
+    return false;
+  }
+}
+
+function validUrl(value?: string) {
+  if (!value) return true;
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function submitPendingClaim(request: Request, env: Env) {
+  const body = await request.json<ClaimSubmission>().catch(() => ({}));
+  if (!body.nonce || !body.walletAddress || !body.signature) {
+    return json({ error: "Signed claim details are incomplete." }, 400);
+  }
+  if (body.evidenceUrl && !validUrl(body.evidenceUrl)) {
+    return json({ error: "Evidence URL is invalid." }, 400);
+  }
+
+  const nonce = await env.DB.prepare(
+    "SELECT * FROM claim_nonces WHERE nonce=?1 AND wallet_address=?2 AND used_at IS NULL AND expires_at>datetime('now') LIMIT 1",
+  ).bind(body.nonce, body.walletAddress).first<Record<string, unknown>>();
+  if (!nonce) return json({ error: "Claim request expired. Start again." }, 400);
+
+  if (!(await verifyWalletSignature(body.walletAddress, String(nonce.message), body.signature))) {
+    return json({ error: "Phantom signature could not be verified." }, 400);
+  }
+
+  const id = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO claim_requests (id,project_id,wallet_address,signature,signed_message,evidence_url,submitter_email,status) VALUES (?1,?2,?3,?4,?5,?6,?7,'pending')",
+    ).bind(
+      id,
+      nonce.project_id,
+      body.walletAddress,
+      body.signature,
+      nonce.message,
+      body.evidenceUrl?.trim() || null,
+      body.submitterEmail?.trim().toLowerCase() || null,
+    ),
+    env.DB.prepare("UPDATE claim_nonces SET used_at=CURRENT_TIMESTAMP WHERE nonce=?1").bind(body.nonce),
+    env.DB.prepare("UPDATE projects SET claim_status='pending',updated_at=CURRENT_TIMESTAMP WHERE id=?1").bind(nonce.project_id),
+  ]);
+
+  return json({ id, status: "pending" }, 201);
 }
 
 async function publishAcceptedSubmission(request: Request, env: Env) {
@@ -129,6 +231,10 @@ export default {
 
       if (url.pathname === "/api/submissions" && request.method === "POST") {
         return withCors(await publishAcceptedSubmission(request, env), cors);
+      }
+
+      if (url.pathname === "/api/claims" && request.method === "POST") {
+        return withCors(await submitPendingClaim(request, env), cors);
       }
 
       if (url.pathname.startsWith("/api/")) {
