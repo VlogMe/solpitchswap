@@ -412,7 +412,7 @@ export default {
       }
 
       if (url.pathname === "/api/claims" && request.method === "POST") {
-        return withCors(await submitPendingClaim(request, env), cors);
+        return withCors(json({ error: "Claim Project has been removed." }, 410), cors);
       }
 
       if (url.pathname.startsWith("/api/")) {
