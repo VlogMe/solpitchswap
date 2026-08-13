@@ -212,26 +212,6 @@ export default function OperatingApp() {
   }, [refreshXSession]);
 
   useEffect(() => {
-    const cleanRetiredCopy = () => {
-      document
-        .querySelectorAll(
-          ".submission-claim-note, .submission-success-popup small",
-        )
-        .forEach((node) => node.remove());
-    };
-
-    cleanRetiredCopy();
-
-    const observer = new MutationObserver(cleanRetiredCopy);
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     const sync = () => {
       const active = window.location.hash === "#/admin-login";
       setAdminRoute(active);
@@ -280,8 +260,6 @@ export default function OperatingApp() {
     const capture = async (event: MouseEvent) => {
       const button = (event.target as HTMLElement).closest("button");
       if (!button) return;
-
-      const text = button.textContent?.trim().toLowerCase() ?? "";
 
       if (button.classList.contains("vote")) {
         event.preventDefault();
@@ -346,13 +324,6 @@ export default function OperatingApp() {
           setVoteBusy(false);
         }
 
-        return;
-      }
-
-      if (text === "submit project" || text === "submit coin") {
-        event.preventDefault();
-        event.stopPropagation();
-        await openSubmitProject();
         return;
       }
     };
