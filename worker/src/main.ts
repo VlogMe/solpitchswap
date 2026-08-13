@@ -430,6 +430,84 @@ export default {
         return withCors(json({ error: "Claim Project has been removed." }, 410), cors);
       }
 
+      if (url.pathname === "/api/my/projects" && request.method === "GET") {
+        const xSession = await getXSession(request, env);
+        if (!xSession) {
+          return withCors(json({ error: "Sign in with X required." }, 401), cors);
+        }
+
+        const result = await env.DB.prepare(
+          "SELECT * FROM projects WHERE x_user_id = ?1 ORDER BY published_at DESC",
+        ).bind(xSession.x_user_id).all<Record<string, unknown>>();
+
+        return withCors(json({ projects: result.results ?? [] }), cors);
+      }
+
+      const myProjectMatch = url.pathname.match(/^\/api\/my\/projects\/([^/]+)$/);
+
+      if (myProjectMatch && request.method === "PATCH") {
+        const xSession = await getXSession(request, env);
+        if (!xSession) {
+          return withCors(json({ error: "Sign in with X required." }, 401), cors);
+        }
+
+        const projectId = decodeURIComponent(myProjectMatch[1]);
+        const body = await request.json<Record<string, unknown>>().catch(() => ({}));
+        const fields: Array<[string, string]> = [
+          ["name", "name"],
+          ["pitch", "pitch"],
+          ["description", "description"],
+          ["website", "website"],
+          ["xUrl", "x_url"],
+          ["telegramUrl", "telegram_url"],
+          ["logoUrl", "logo_url"],
+        ];
+        const updates: string[] = [];
+        const values: unknown[] = [];
+
+        for (const [inputKey, column] of fields) {
+          if (Object.prototype.hasOwnProperty.call(body, inputKey)) {
+            updates.push(`${column} = ?${values.length + 1}`);
+            values.push(String(body[inputKey] ?? "").trim() || null);
+          }
+        }
+
+        if (updates.length === 0) {
+          return withCors(json({ ok: true }), cors);
+        }
+
+        updates.push("updated_at = CURRENT_TIMESTAMP");
+        const idIndex = values.length + 1;
+        const userIndex = values.length + 2;
+        const result = await env.DB.prepare(
+          `UPDATE projects SET ${updates.join(", ")} WHERE id = ?${idIndex} AND x_user_id = ?${userIndex}`,
+        ).bind(...values, projectId, xSession.x_user_id).run();
+
+        if ((result.meta.changes ?? 0) === 0) {
+          return withCors(json({ error: "Project not found." }, 404), cors);
+        }
+
+        return withCors(json({ ok: true }), cors);
+      }
+
+      if (myProjectMatch && request.method === "DELETE") {
+        const xSession = await getXSession(request, env);
+        if (!xSession) {
+          return withCors(json({ error: "Sign in with X required." }, 401), cors);
+        }
+
+        const projectId = decodeURIComponent(myProjectMatch[1]);
+        const result = await env.DB.prepare(
+          "DELETE FROM projects WHERE id = ?1 AND x_user_id = ?2",
+        ).bind(projectId, xSession.x_user_id).run();
+
+        if ((result.meta.changes ?? 0) === 0) {
+          return withCors(json({ error: "Project not found." }, 404), cors);
+        }
+
+        return withCors(json({ ok: true }), cors);
+      }
+
       if (url.pathname.startsWith("/api/")) {
         return withCors(await listingsWorker.fetch(request, env), cors);
       }
