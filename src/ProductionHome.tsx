@@ -936,6 +936,7 @@ export default function ProductionHome({
   onSignIn,
   onLogout,
   onProjectsChanged,
+  onSubmitProject,
 }: {
   projects: Project[];
   loading: boolean;
@@ -945,6 +946,7 @@ export default function ProductionHome({
   onSignIn: () => void;
   onLogout: () => void;
   onProjectsChanged: () => void;
+  onSubmitProject: () => void;
 }) {
   const [contractQuery, setContractQuery] =
     useState("");
@@ -1152,7 +1154,11 @@ export default function ProductionHome({
             </>
           )}
 
-          <button className="primary">
+          <button
+            className="primary"
+            type="button"
+            onClick={onSubmitProject}
+          >
             Submit project
           </button>
         </div>
@@ -1206,7 +1212,12 @@ export default function ProductionHome({
           <p>FOR PROJECTS</p>
 
           <nav>
-            <button>Submit project</button>
+            <button
+              type="button"
+              onClick={onSubmitProject}
+            >
+              Submit project
+            </button>
 
             {xSession.authenticated && (
               <button
@@ -1351,6 +1362,7 @@ export default function ProductionHome({
                 <button
                   className="primary"
                   type="button"
+                  onClick={onSubmitProject}
                   style={{
                     padding: "11px 15px",
                     fontWeight: 800,
@@ -1552,7 +1564,11 @@ export default function ProductionHome({
                     automatically.
                   </p>
 
-                  <button className="primary">
+                  <button
+                    className="primary"
+                    type="button"
+                    onClick={onSubmitProject}
+                  >
                     Submit project
                   </button>
                 </div>
