@@ -25,6 +25,8 @@ export type Project = {
   promoted: boolean;
   listedLabel: string;
   publishedAt?: string;
+  xUserId?: string;
+  xUsername?: string;
   links: { website?: string; x?: string; telegram?: string; discord?: string };
 };
 
