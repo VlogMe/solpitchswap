@@ -296,6 +296,10 @@ export default {
         const state = url.searchParams.get("state");
 
         if (!code || !state) {
+          console.error("X OAuth callback missing code or state", {
+            hasCode: Boolean(code),
+            hasState: Boolean(state),
+          });
           return Response.redirect("https://solpitch.com/?auth=error", 302);
         }
 
@@ -304,6 +308,7 @@ export default {
         ).bind(state).first<{ code_verifier: string }>();
 
         if (!row) {
+          console.error("X OAuth callback state not found in x_oauth_states", { state });
           return Response.redirect("https://solpitch.com/?auth=error", 302);
         }
 
@@ -324,6 +329,11 @@ export default {
         });
 
         if (!tokenRes.ok) {
+          const tokenErrorBody = await tokenRes.text();
+          console.error("X OAuth token exchange failed", {
+            status: tokenRes.status,
+            body: tokenErrorBody,
+          });
           return Response.redirect("https://solpitch.com/?auth=error", 302);
         }
 
@@ -337,6 +347,11 @@ export default {
         });
 
         if (!userRes.ok) {
+          const userErrorBody = await userRes.text();
+          console.error("X OAuth /2/users/me failed", {
+            status: userRes.status,
+            body: userErrorBody,
+          });
           return Response.redirect("https://solpitch.com/?auth=error", 302);
         }
 
