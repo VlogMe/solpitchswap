@@ -459,7 +459,6 @@ export default function OperatingApp() {
         onSignIn={() => beginXLogin()}
         onLogout={() => void handleXLogout()}
         onProjectsChanged={() => void refreshProjects()}
-        onSubmitProject={() => void openSubmitProject()}
       />
 
       {panel === "submit" && xSession.authenticated && (
