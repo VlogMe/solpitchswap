@@ -258,6 +258,28 @@ export default {
         return withCors(await publishAcceptedSubmission(request, env), cors);
       }
 
+      if (url.pathname === "/api/auth/x/login" && request.method === "GET") {
+  const state = generateRandomString(32);
+  const codeVerifier = generateRandomString(64);
+  const codeChallenge = await sha256Base64Url(codeVerifier);
+
+  await env.DB.prepare(
+    "INSERT INTO x_oauth_states (state, code_verifier, created_at) VALUES (?1, ?2, ?3)"
+  ).bind(state, codeVerifier, Date.now()).run();
+
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: env.X_CLIENT_ID,
+    redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
+    scope: "users.read",
+    state,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+  });
+
+  return Response.redirect(`https://x.com/i/oauth2/authorize?${params.toString()}`, 302);
+}
+
       if (url.pathname === "/api/claims" && request.method === "POST") {
         return withCors(await submitPendingClaim(request, env), cors);
       }
