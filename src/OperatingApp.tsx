@@ -60,6 +60,16 @@ export default function OperatingApp() {
   useEffect(() => { void refreshProjects(); }, [refreshProjects]);
 
   useEffect(() => {
+    const cleanRetiredCopy = () => {
+      document.querySelectorAll(".submission-claim-note, .submission-success-popup small").forEach(node => node.remove());
+    };
+    cleanRetiredCopy();
+    const observer = new MutationObserver(cleanRetiredCopy);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const sync = () => {
       const active = window.location.hash === "#/admin-login";
       setAdminRoute(active);
