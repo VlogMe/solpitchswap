@@ -388,7 +388,7 @@ export default {
           response_type: "code",
           client_id: env.X_CLIENT_ID,
           redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
-          scope: "users.read",
+          scope: "tweet.read users.read",
           state,
           code_challenge: codeChallenge,
           code_challenge_method: "S256",
