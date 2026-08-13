@@ -497,13 +497,22 @@ export default {
         }
 
         const projectId = decodeURIComponent(myProjectMatch[1]);
-        const result = await env.DB.prepare(
-          "DELETE FROM projects WHERE id = ?1 AND x_user_id = ?2",
-        ).bind(projectId, xSession.x_user_id).run();
+        const existing = await env.DB.prepare(
+          "SELECT contract_address FROM projects WHERE id = ?1 AND x_user_id = ?2 LIMIT 1",
+        ).bind(projectId, xSession.x_user_id).first<{ contract_address: string }>();
 
-        if ((result.meta.changes ?? 0) === 0) {
+        if (!existing) {
           return withCors(json({ error: "Project not found." }, 404), cors);
         }
+
+        await env.DB.batch([
+          env.DB.prepare(
+            "DELETE FROM submissions WHERE TRIM(contract_address) = TRIM(?1)",
+          ).bind(existing.contract_address),
+          env.DB.prepare(
+            "DELETE FROM projects WHERE id = ?1 AND x_user_id = ?2",
+          ).bind(projectId, xSession.x_user_id),
+        ]);
 
         return withCors(json({ ok: true }), cors);
       }
