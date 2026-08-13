@@ -300,7 +300,7 @@ export default {
             hasCode: Boolean(code),
             hasState: Boolean(state),
           });
-          return Response.redirect("https://solpitch.com/?auth=error", 302);
+          return Response.redirect("https://solpitch.com/?auth=error&stage=missing_params", 302);
         }
 
         const row = await env.DB.prepare(
@@ -309,7 +309,7 @@ export default {
 
         if (!row) {
           console.error("X OAuth callback state not found in x_oauth_states", { state });
-          return Response.redirect("https://solpitch.com/?auth=error", 302);
+          return Response.redirect("https://solpitch.com/?auth=error&stage=state", 302);
         }
 
         await env.DB.prepare("DELETE FROM x_oauth_states WHERE state = ?1").bind(state).run();
@@ -334,12 +334,12 @@ export default {
             status: tokenRes.status,
             body: tokenErrorBody,
           });
-          return Response.redirect("https://solpitch.com/?auth=error", 302);
+          return Response.redirect(`https://solpitch.com/?auth=error&stage=token&status=${tokenRes.status}`, 302);
         }
 
         const tokenData = await tokenRes.json() as { access_token?: string };
         if (!tokenData.access_token) {
-          return Response.redirect("https://solpitch.com/?auth=error", 302);
+          return Response.redirect("https://solpitch.com/?auth=error&stage=token_response", 302);
         }
 
         const userRes = await fetch("https://api.x.com/2/users/me", {
@@ -352,12 +352,12 @@ export default {
             status: userRes.status,
             body: userErrorBody,
           });
-          return Response.redirect("https://solpitch.com/?auth=error", 302);
+          return Response.redirect(`https://solpitch.com/?auth=error&stage=user&status=${userRes.status}`, 302);
         }
 
         const userData = await userRes.json() as { data?: { id: string; username: string } };
         if (!userData.data?.id || !userData.data?.username) {
-          return Response.redirect("https://solpitch.com/?auth=error", 302);
+          return Response.redirect("https://solpitch.com/?auth=error&stage=user_data", 302);
         }
 
         const sessionToken = generateRandomString(48);
