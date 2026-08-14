@@ -111,6 +111,24 @@ function ProjectCard({
 
         <div className="coin-title">
           <div>
+            {project.xUsername && (
+              <a
+                href={`https://x.com/${project.xUsername.replace(/^@/, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                  display: "block",
+                  marginBottom: "3px",
+                  color: "#9ba4b8",
+                  fontSize: ".72rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                }}
+              >
+                @{project.xUsername.replace(/^@/, "")}
+              </a>
+            )}
             <h3>{project.name}</h3>
             <span>${project.symbol}</span>
           </div>
@@ -269,6 +287,26 @@ function ProjectPage({
                 <span className="featured">Featured</span>
               )}
             </div>
+
+            {project.xUsername && (
+              <a
+                href={`https://x.com/${project.xUsername.replace(/^@/, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                  display: "inline-block",
+                  marginTop: "8px",
+                  marginBottom: "4px",
+                  color: "#9ba4b8",
+                  fontSize: ".78rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                }}
+              >
+                @{project.xUsername.replace(/^@/, "")}
+              </a>
+            )}
 
             <h1>
               {project.name} <span>${project.symbol}</span>
