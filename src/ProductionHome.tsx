@@ -82,7 +82,11 @@ function loadProjectInNativeSwap(project: Project) {
 
 function shareProjectOnX(project: Project) {
   const projectUrl = `${window.location.origin}${window.location.pathname}#/project/${encodeURIComponent(project.slug)}`;
-  const text = `🔥 Check out $${project.symbol} on @solpitch2026\n\nView the project, vote and trade it on SolPitch Network 👇\n${projectUrl}\n\n#Solana`;
+  const handle = project.xUsername?.replace(/^@/, "") || "";
+  const listedBy = handle ? ` by @${handle}` : "";
+  const text =
+    `🔥 $${project.symbol} was just listed${listedBy} on SolPitch\n\n` +
+    `View · vote · trade 👇\n${projectUrl}\n\n#Solana`;
   const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 
   window.open(shareUrl, "_blank", "noopener,noreferrer");
@@ -919,8 +923,7 @@ function MyListingsModal({
                               current
                                 ? {
                                     ...current,
-                                    logoUrl:
-                                      event.target.value,
+                                    logoUrl: event.target.value,
                                   }
                                 : current,
                             )
