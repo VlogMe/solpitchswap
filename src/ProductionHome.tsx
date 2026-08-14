@@ -923,7 +923,8 @@ function MyListingsModal({
                               current
                                 ? {
                                     ...current,
-                                    logoUrl: event.target.value,
+                                    logoUrl:
+                                      event.target.value,
                                   }
                                 : current,
                             )
