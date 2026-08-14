@@ -287,6 +287,13 @@ function ProjectPage({
           </button>
 
           <button
+            type="button"
+            onClick={() => shareProjectOnX(project)}
+          >
+            𝕏 Share
+          </button>
+
+          <button
             className="primary"
             type="button"
             data-load-listed-token={project.contractAddress}
@@ -295,13 +302,6 @@ function ProjectPage({
             }
           >
             Buy ${project.symbol}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => shareProjectOnX(project)}
-          >
-            𝕏 Share
           </button>
         </div>
       </section>
