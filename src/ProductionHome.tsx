@@ -286,18 +286,16 @@ function ProjectPage({
             ▲ Vote {project.votes}
           </button>
 
-          {project.addedToSwap && (
-            <button
-              className="primary"
-              type="button"
-              data-load-listed-token={project.contractAddress}
-              onClick={() =>
-                loadProjectInNativeSwap(project)
-              }
-            >
-              Buy ${project.symbol}
-            </button>
-          )}
+          <button
+            className="primary"
+            type="button"
+            data-load-listed-token={project.contractAddress}
+            onClick={() =>
+              loadProjectInNativeSwap(project)
+            }
+          >
+            Buy ${project.symbol}
+          </button>
 
           <button
             type="button"
