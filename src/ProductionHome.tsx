@@ -923,8 +923,7 @@ function MyListingsModal({
                               current
                                 ? {
                                     ...current,
-                                    logoUrl:
-                                      event.target.value,
+                                    logoUrl: event.target.value,
                                   }
                                 : current,
                             )
@@ -1283,7 +1282,6 @@ export default function ProductionHome({
             >
               If you want to launch your own meme coin the right way, use MemeWarzone.
               <br />
-              Pre-bond heat + post-bond battles and rewards keep your project alive long after graduation.
             </div>
 
             <div
