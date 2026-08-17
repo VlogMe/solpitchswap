@@ -8,6 +8,7 @@ import PromotionOptionsPortal from "./PromotionOptionsPortal";
 import "./sprint14.css";
 import "./analyzer.css";
 import "./launch-ready.css";
+import "./nav-rail-overrides.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
