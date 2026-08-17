@@ -323,7 +323,7 @@ export default {
           body: new URLSearchParams({
             code,
             grant_type: "authorization_code",
-            redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
+            redirect_uri: "https://api.solpitch.com/api/auth/x/callback",
             code_verifier: row.code_verifier,
           }),
         });
@@ -387,7 +387,7 @@ export default {
         const params = new URLSearchParams({
           response_type: "code",
           client_id: env.X_CLIENT_ID,
-          redirect_uri: "https://solpitchswap.kevingpersson.workers.dev/api/auth/x/callback",
+          redirect_uri: "https://api.solpitch.com/api/auth/x/callback",
           scope: "tweet.read users.read",
           state,
           code_challenge: codeChallenge,
