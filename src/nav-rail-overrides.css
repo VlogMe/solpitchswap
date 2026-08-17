@@ -1,0 +1,19 @@
+.nav-rail nav button {
+  color: #fff;
+}
+
+.nav-rail nav button:hover {
+  color: #22c55e;
+}
+
+.nav-rail nav a:not([href="https://app.memewar.zone/"]) {
+  color: #fff !important;
+}
+
+.nav-rail nav a:not([href="https://app.memewar.zone/"]):hover {
+  color: #22c55e !important;
+}
+
+.nav-rail > nav:first-of-type > button:nth-of-type(2) {
+  display: none;
+}
