@@ -4,6 +4,7 @@ import OperatingApp from "./OperatingApp";
 // import NativeSwapPortal from "./NativeSwapPortal";
 import JupiterSwapPortal from "./JupiterSwapPortal";
 import HeaderBrandPortal from "./HeaderBrandPortal";
+import PromotionOptionsPortal from "./PromotionOptionsPortal";
 import "./sprint14.css";
 import "./analyzer.css";
 import "./launch-ready.css";
@@ -15,5 +16,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     {/* <NativeSwapPortal /> */}
     <JupiterSwapPortal />
     <HeaderBrandPortal />
+    <PromotionOptionsPortal />
   </React.StrictMode>,
 );
