@@ -44,17 +44,37 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import os, re
-          path = Path('site/index.html')
-          text = path.read_text()
+
+          site_path = Path('site/index.html')
+          source_path = Path('source/dist/index.html')
+          text = site_path.read_text()
+          source = source_path.read_text()
+
           text = re.sub(r"/(?:solpitchswap/)?assets/index-[^\"']+\.js", f"/assets/{os.environ['NEW_JS']}", text, count=1)
           text = re.sub(r"/(?:solpitchswap/)?assets/index-[^\"']+\.css", f"/assets/{os.environ['NEW_CSS']}", text, count=1)
-          path.write_text(text)
+
+          for pattern in [
+              r'<meta name="theme-color"[^>]*>',
+              r'<meta name="description"[^>]*>',
+              r'<link rel="icon"[^>]*>',
+              r'<link rel="apple-touch-icon"[^>]*>',
+              r'<title>.*?</title>',
+          ]:
+              source_match = re.search(pattern, source, flags=re.S)
+              if source_match:
+                  text = re.sub(pattern, source_match.group(0), text, count=1, flags=re.S)
+
+          site_path.write_text(text)
           PY
           cd site
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html assets/
-          git commit -m "Publish compact project action buttons"
+          if git diff --cached --quiet; then
+            echo "No publish changes detected."
+            exit 0
+          fi
+          git commit -m "Publish latest SolPitch build"
           git push origin gh-pages
 
 # republish trigger for CA copy confirmation
