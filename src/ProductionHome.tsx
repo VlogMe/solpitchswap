@@ -1272,6 +1272,69 @@ export default function ProductionHome({
 
             <button>Promotion options</button>
 
+            <div
+              style={{
+                color: "#9ba4b8",
+                padding: "2px 12px 0",
+                fontSize: ".72rem",
+                lineHeight: 1.5,
+                fontWeight: 700,
+              }}
+            >
+              If you want to launch your own meme coin the right way, use MemeWarzone.
+              <br />
+              Pre-bond heat + post-bond battles and rewards keep your project alive long after graduation.
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                padding: "5px 0 2px",
+              }}
+              aria-hidden="true"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" role="img">
+                <text
+                  x="12"
+                  y="18"
+                  textAnchor="middle"
+                  fontSize="20"
+                  fontWeight="900"
+                  fill="#22c55e"
+                >
+                  ↓
+                  <animate
+                    attributeName="opacity"
+                    values="0.4;1;0.4"
+                    dur="1.4s"
+                    repeatCount="indefinite"
+                  />
+                </text>
+              </svg>
+            </div>
+
+            <a
+              href="https://app.memewar.zone/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "block",
+                margin: "0 12px 8px",
+                padding: "9px 10px",
+                border: "1px solid rgba(34,197,94,.28)",
+                borderRadius: "8px",
+                background: "rgba(34,197,94,.08)",
+                color: "#55e59d",
+                fontSize: ".78rem",
+                fontWeight: 800,
+                textAlign: "center",
+                textDecoration: "none",
+              }}
+            >
+              Launch your Memecoin
+            </a>
+
             <details
               style={{
                 color: "#9ba4b8",
