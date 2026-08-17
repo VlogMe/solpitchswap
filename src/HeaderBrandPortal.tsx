@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import "./header-brand.css";
 
-const LOGO_URL = "https://solpitchswap.kevingpersson.workers.dev/logo.png";
+const LOGO_URL = "https://api.solpitch.com/logo.png";
 
 export default function HeaderBrandPortal() {
   const [target, setTarget] = useState<HTMLElement | null>(null);
