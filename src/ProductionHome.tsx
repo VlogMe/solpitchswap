@@ -1385,7 +1385,7 @@ export default function ProductionHome({
                   padding: "11px 0",
                 }}
               >
-                How approval works
+                How listing works
               </summary>
 
               <ul
@@ -1396,18 +1396,15 @@ export default function ProductionHome({
                   lineHeight: 1.5,
                 }}
               >
-                <li>Submit your project</li>
+                <li>Submit your project for free</li>
                 <li>
-                  Our team reviews it (usually within
-                  24–48 hours)
+                  Valid submissions are published to the SolPitch Network
                 </li>
                 <li>
-                  If approved, it appears in the live
-                  listings
+                  Listings are monitored for scams, fraud, impersonation, and harmful activity
                 </li>
                 <li>
-                  Rejected projects can be improved and
-                  resubmitted
+                  Listings that violate our rules or put users at risk may be removed
                 </li>
               </ul>
             </details>
@@ -1436,28 +1433,19 @@ export default function ProductionHome({
                 }}
               >
                 <div style={{ margin: "0 0 8px" }}>
-                  Once your project is approved, we
-                  don’t just list it and forget about
-                  it.
+                  Once your project is live, we don’t just list it and forget about it.
                 </div>
 
                 <div style={{ margin: "0 0 8px" }}>
-                  We share your project on our X
-                  account @solpitch2026, then our
-                  automation system republishes that
-                  post to the SolPitch SEO blog,
-                  giving your project additional
-                  exposure across social and search.
+                  SolPitch listings are free, but the network is monitored for scams, fraud, impersonation, malicious activity, and other rule violations. Projects that put users at risk may be removed.
                 </div>
 
                 <div style={{ margin: "0 0 8px" }}>
-                  One submission. Multiple
-                  distribution channels.
+                  We also share projects through @solpitch2026 and our SolPitch News distribution so listings can gain additional exposure across social and search.
                 </div>
 
                 <div style={{ margin: "0 0 8px" }}>
-                  You list it. We put it in front of
-                  people.
+                  Free listing. Ongoing monitoring. Multiple distribution channels.
                 </div>
 
                 <button
