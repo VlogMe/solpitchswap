@@ -108,6 +108,12 @@ function firstLink(profile: MetadataProfile | undefined, matcher: RegExp) {
   return profile?.links?.find(link => matcher.test(`${link.type ?? ""} ${link.label ?? ""} ${link.url ?? ""}`))?.url ?? "";
 }
 
+function normalizeAssetUrl(value: unknown) {
+  const url = String(value ?? "").trim();
+  if (url.startsWith("ipfs://")) return `https://ipfs.io/ipfs/${url.slice("ipfs://".length).replace(/^ipfs\//, "")}`;
+  return url;
+}
+
 async function safeJson<T>(url: string): Promise<T | null> {
   try {
     const response = await fetch(url, {
@@ -181,9 +187,9 @@ async function enrichToken(address: string, base: Record<string, unknown>) {
   ).trim();
   const name = String(offchain?.name || pump?.name || base.name || "").trim();
   const symbol = String(offchain?.symbol || pump?.symbol || base.symbol || "").trim();
-  const logoUrl = String(
+  const logoUrl = normalizeAssetUrl(
     offchain?.image || offchain?.properties?.files?.[0]?.uri || pump?.image_uri || profile?.icon || base.logoUrl || "",
-  ).trim();
+  );
   const website = String(
     offchain?.external_url || pump?.website || firstLink(profile, /website|site/i) || base.website || "",
   ).trim();
