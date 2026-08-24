@@ -158,9 +158,6 @@ async function isSolanaTokenMint(address: string, env: Env) {
     if (await verifyMintWithRpc(address, rpc)) return true;
   }
 
-  // RPC verification is best-effort only. A valid Solana public-key-shaped address
-  // may still be submitted for private admin review when public RPC verification
-  // is unavailable, rate-limited, or temporarily unable to resolve the mint.
   return true;
 }
 
@@ -225,9 +222,21 @@ export default {
       if (!(await isSolanaTokenMint(address, env))) {
         return json({ error: "This address could not be confirmed as a valid Solana token mint." }, 400, cors);
       }
-      const baseResponse = await baseWorker.fetch(request, env);
-      const base = await baseResponse.json<Record<string, unknown>>().catch(() => ({}));
-      if (!baseResponse.ok) Object.assign(base, { found: false, address, tradable: false });
+
+      let base: Record<string, unknown> = { found: false, address, tradable: false };
+      try {
+        const baseResponse = await Promise.race([
+          baseWorker.fetch(request, env),
+          new Promise<Response>(resolve => {
+            setTimeout(() => resolve(json({ found: false, address, tradable: false }, 200)), 4500);
+          }),
+        ]);
+        const parsed = await baseResponse.json<Record<string, unknown>>().catch(() => ({}));
+        if (baseResponse.ok) base = parsed;
+      } catch {
+        // DexScreener is best-effort. Pump.fun metadata enrichment below can still succeed.
+      }
+
       base.found = true;
       base.address = address;
       base.validSolanaMint = true;
