@@ -227,7 +227,7 @@ export default {
       }
       const baseResponse = await baseWorker.fetch(request, env);
       const base = await baseResponse.json<Record<string, unknown>>().catch(() => ({}));
-      if (!baseResponse.ok) return json(base, baseResponse.status, cors);
+      if (!baseResponse.ok) Object.assign(base, { found: false, address, tradable: false });
       base.found = true;
       base.address = address;
       base.validSolanaMint = true;
