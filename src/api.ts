@@ -14,6 +14,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body;
 }
 
+function normalizeLogoUrl(value: unknown) {
+  const url = String(value ?? "").trim();
+  if (!url) return "";
+  const ipfsMatch = url.match(/^ipfs:\/\/(?:ipfs\/)?([^/?#]+)/i) ?? url.match(/\/ipfs\/([^/?#]+)/i);
+  const cid = ipfsMatch?.[1] ?? (/^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]+)$/i.test(url) ? url : "");
+  return cid ? `https://${cid}.ipfs.dweb.link/` : url;
+}
+
 export type TokenAnalysis = { found:boolean; address:string; tradable:boolean; name?:string; symbol?:string; logoUrl?:string; website?:string; xUrl?:string; telegramUrl?:string; dexScreenerUrl?:string; dexId?:string; pairAddress?:string; priceUsd?:string; liquidityUsd?:number; marketCap?:number; volume24h?:number; metadataFound?:number; metadataTotal?:number; analysisLevel?:"strong"|"review"|"manual"; description?:string; pitch?:string; metadataSource?:string; descriptionFound?:boolean };
 export type ClaimRequest = { id:string; projectName:string; projectSymbol:string; projectSlug:string; walletAddress:string; evidenceUrl:string; submitterEmail:string; createdAt:string };
 export type ActivityEvent = { id:string; projectId?:string; eventType:string; eventText:string; createdAt:string; slug?:string; name?:string; symbol?:string; logoUrl?:string };
@@ -27,9 +35,9 @@ export async function logoutX(){return request<{ok:true}>('/api/auth/x/logout',{
 export async function getMyProjects(){const result=await request<{projects:Record<string,unknown>[]}>('/api/my/projects');return result.projects.map(mapProjectRow);}
 export async function updateMyProject(id:string,payload:MyProjectUpdate){return request<{ok:true}>(`/api/my/projects/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(payload)});}
 export async function deleteMyProject(id:string){return request<{ok:true}>(`/api/my/projects/${encodeURIComponent(id)}`,{method:'DELETE'});}
-export async function analyzeToken(address:string){return request<TokenAnalysis>(`/api/analyze-token?address=${encodeURIComponent(address)}`);}
+export async function analyzeToken(address:string){const result=await request<TokenAnalysis>(`/api/analyze-token?address=${encodeURIComponent(address)}`);return{...result,logoUrl:normalizeLogoUrl(result.logoUrl)||undefined};}
 export async function getPublishedProjects(){const result=await request<{projects:Record<string,unknown>[]}>('/api/projects');return result.projects.map(mapProjectRow);}
-export async function getActivity(){const result=await request<{events:Record<string,unknown>[]}>('/api/activity');return result.events.map(row=>({id:String(row.id),projectId:String(row.project_id??'')||undefined,eventType:String(row.event_type),eventText:String(row.event_text),createdAt:String(row.created_at),slug:String(row.slug??'')||undefined,name:String(row.name??'')||undefined,symbol:String(row.symbol??'')||undefined,logoUrl:String(row.logo_url??'')||undefined}));}
+export async function getActivity(){const result=await request<{events:Record<string,unknown>[]}>('/api/activity');return result.events.map(row=>({id:String(row.id),projectId:String(row.project_id??'')||undefined,eventType:String(row.event_type),eventText:String(row.event_text),createdAt:String(row.created_at),slug:String(row.slug??'')||undefined,name:String(row.name??'')||undefined,symbol:String(row.symbol??'')||undefined,logoUrl:normalizeLogoUrl(row.logo_url)||undefined}));}
 export async function submitCoin(payload:SubmissionPayload){return request<{id:string;status:"pending";projectStatus:ProjectStatus}>('/api/submissions',{method:'POST',body:JSON.stringify(payload)});}
 export async function createClaimNonce(projectSlug:string,walletAddress:string){return request<{nonce:string;message:string}>('/api/claims/nonce',{method:'POST',body:JSON.stringify({projectSlug,walletAddress})});}
 export async function submitClaim(payload:{nonce:string;walletAddress:string;signature:string;evidenceUrl?:string;submitterEmail?:string}){return request<{id:string;status:"pending"}>('/api/claims',{method:'POST',body:JSON.stringify(payload)});}
@@ -58,7 +66,7 @@ function mapProjectRow(row:Record<string,unknown>):Project{
     slug:String(row.slug),name:String(row.name),symbol:String(row.symbol),contractAddress:String(row.contract_address),
     projectStatus:String(row.project_status) as ProjectStatus,claimStatus:String(row.claim_status??'unclaimed') as Project['claimStatus'],
     category:categoryFromDescription(description),pitch:String(row.pitch||"No public short description has been provided."),description:cleanDescription(description)||"No public project description has been provided.",
-    badges:promoted?["Community Listed","Featured"]:["Community Listed"],logoURI:String(row.logo_url??'')||undefined,
+    badges:promoted?["Community Listed","Featured"]:["Community Listed"],logoURI:normalizeLogoUrl(row.logo_url)||undefined,
     marketCap:'Updating…',liquidity:'Updating…',volume24h:'Updating…',holders:'Unavailable',votes:Number(row.votes??0),
     addedToSwap:Number(row.added_to_swap??0)===1,promoted,listedLabel:publishedAt?new Date(publishedAt).toLocaleDateString():"Recently",publishedAt,
     xUserId:String(row.x_user_id??'')||undefined,xUsername:String(row.x_username??'')||undefined,
