@@ -17,9 +17,27 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 function normalizeLogoUrl(value: unknown) {
   const url = String(value ?? "").trim();
   if (!url) return "";
-  const ipfsMatch = url.match(/^ipfs:\/\/(?:ipfs\/)?([^/?#]+)/i) ?? url.match(/\/ipfs\/([^/?#]+)/i);
-  const cid = ipfsMatch?.[1] ?? (/^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]+)$/i.test(url) ? url : "");
-  return cid ? `https://${cid}.ipfs.dweb.link/` : url;
+
+  // Extract CID from common IPFS forms
+  const ipfsMatch =
+    url.match(/^ipfs:\/\/(?:ipfs\/)?([^/?#]+)/i) ??
+    url.match(/\/ipfs\/([^/?#]+)/i);
+
+  const cid =
+    ipfsMatch?.[1] ??
+    (/^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]+)$/i.test(url)
+      ? url
+      : "");
+
+  if (!cid) return url;
+
+  // CIDv1 (bafy...) -> subdomain gateway
+  if (/^bafy/i.test(cid)) {
+    return `https://${cid}.ipfs.dweb.link/`;
+  }
+
+  // CIDv0 (Qm...) -> path-style gateway
+  return `https://dweb.link/ipfs/${cid}`;
 }
 
 export type TokenAnalysis = { found:boolean; address:string; tradable:boolean; name?:string; symbol?:string; logoUrl?:string; website?:string; xUrl?:string; telegramUrl?:string; dexScreenerUrl?:string; dexId?:string; pairAddress?:string; priceUsd?:string; liquidityUsd?:number; marketCap?:number; volume24h?:number; metadataFound?:number; metadataTotal?:number; analysisLevel?:"strong"|"review"|"manual"; description?:string; pitch?:string; metadataSource?:string; descriptionFound?:boolean };
