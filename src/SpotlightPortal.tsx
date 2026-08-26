@@ -44,15 +44,10 @@ function SpotlightCard({ entry }: { entry: SpotlightEntry }) {
           )}
         </div>
 
-        <div className="spotlight-title">
-          <strong>{project.name}</strong>
-          <span>${project.symbol}</span>
-        </div>
+        <div className="spotlight-title">${project.symbol}</div>
 
         <div className="spotlight-votes">▲ {periodVotes}</div>
       </div>
-
-      <p>{project.pitch || "No public short description has been provided."}</p>
 
       <div className="spotlight-actions">
         <button type="button" className="ghost" onClick={() => openProject(project)}>
