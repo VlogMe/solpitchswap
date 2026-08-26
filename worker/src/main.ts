@@ -39,6 +39,7 @@ async function hashToken(token: string): Promise<string> {
 type XSession = {
   x_user_id: string;
   x_username: string;
+  x_account_created_at?: string | null;
 };
 
 type LiveSubmission = {
@@ -65,6 +66,58 @@ type ClaimSubmission = {
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const X_SESSION_COOKIE = "solpitch_x_session";
 const X_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+const X_MIN_ACCOUNT_AGE_MS = 60 * 24 * 60 * 60 * 1000;
+let xVotingSchemaReady = false;
+
+async function ensureXVotingSchema(env: Env) {
+  if (xVotingSchemaReady) return;
+
+  await env.DB.batch([
+    env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS x_voter_profiles (x_user_id TEXT PRIMARY KEY, x_username TEXT, x_account_created_at TEXT NOT NULL, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    ),
+    env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS x_votes (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, x_user_id TEXT NOT NULL, week_key TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(project_id, x_user_id, week_key))",
+    ),
+    env.DB.prepare(
+      "CREATE INDEX IF NOT EXISTS idx_x_votes_week_project ON x_votes(week_key, project_id)",
+    ),
+    env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS x_voting_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+    ),
+    env.DB.prepare(
+      "INSERT OR IGNORE INTO x_voting_state (key, value) VALUES ('phase1_cutover', 'pending')",
+    ),
+    env.DB.prepare(
+      "UPDATE projects SET votes=0, updated_at=CURRENT_TIMESTAMP WHERE EXISTS (SELECT 1 FROM x_voting_state WHERE key='phase1_cutover' AND value='pending')",
+    ),
+    env.DB.prepare(
+      "UPDATE x_voting_state SET value=CURRENT_TIMESTAMP WHERE key='phase1_cutover' AND value='pending'",
+    ),
+  ]);
+
+  xVotingSchemaReady = true;
+}
+
+function weekKey(date = new Date()) {
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((target.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${target.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function xVotingEligibility(session: XSession) {
+  const createdAt = Date.parse(session.x_account_created_at ?? "");
+  if (!Number.isFinite(createdAt)) {
+    return { eligible: false, reason: "eligibility_unverified" as const };
+  }
+  if (Date.now() - createdAt < X_MIN_ACCOUNT_AGE_MS) {
+    return { eligible: false, reason: "account_too_new" as const };
+  }
+  return { eligible: true, reason: null };
+}
 
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
@@ -126,7 +179,7 @@ async function getXSession(request: Request, env: Env): Promise<XSession | null>
   if (!sessionToken) return null;
 
   const row = await env.DB.prepare(
-    "SELECT x_user_id, x_username FROM x_sessions WHERE token_hash = ?1 AND expires_at > ?2 LIMIT 1",
+    "SELECT s.x_user_id, s.x_username, p.x_account_created_at FROM x_sessions s LEFT JOIN x_voter_profiles p ON p.x_user_id=s.x_user_id WHERE s.token_hash=?1 AND s.expires_at>?2 LIMIT 1",
   ).bind(await hashToken(sessionToken), Date.now()).first<XSession>();
 
   return row ?? null;
@@ -288,6 +341,8 @@ export default {
       if (url.pathname === "/logo.png" && request.method === "GET") return serveLogo();
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
+      await ensureXVotingSchema(env);
+
       const swapResponse = await handleSwapRequest(request, env, cors);
       if (swapResponse) return withCors(swapResponse, cors);
 
@@ -342,7 +397,7 @@ export default {
           return Response.redirect("https://solpitch.com/?auth=error&stage=token_response", 302);
         }
 
-        const userRes = await fetch("https://api.x.com/2/users/me", {
+        const userRes = await fetch("https://api.x.com/2/users/me?user.fields=created_at", {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
 
@@ -355,7 +410,9 @@ export default {
           return Response.redirect(`https://solpitch.com/?auth=error&stage=user&status=${userRes.status}`, 302);
         }
 
-        const userData = await userRes.json() as { data?: { id: string; username: string } };
+        const userData = await userRes.json() as {
+          data?: { id: string; username: string; created_at?: string };
+        };
         if (!userData.data?.id || !userData.data?.username) {
           return Response.redirect("https://solpitch.com/?auth=error&stage=user_data", 302);
         }
@@ -363,10 +420,21 @@ export default {
         const sessionToken = generateRandomString(48);
         const tokenHash = await hashToken(sessionToken);
         const expiresAt = Date.now() + X_SESSION_MAX_AGE * 1000;
+        const statements = [
+          env.DB.prepare(
+            "INSERT INTO x_sessions (token_hash, x_user_id, x_username, expires_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+          ).bind(tokenHash, userData.data.id, userData.data.username, expiresAt, Date.now()),
+        ];
 
-        await env.DB.prepare(
-          "INSERT INTO x_sessions (token_hash, x_user_id, x_username, expires_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        ).bind(tokenHash, userData.data.id, userData.data.username, expiresAt, Date.now()).run();
+        if (userData.data.created_at) {
+          statements.push(
+            env.DB.prepare(
+              "INSERT INTO x_voter_profiles (x_user_id,x_username,x_account_created_at,checked_at) VALUES (?1,?2,?3,CURRENT_TIMESTAMP) ON CONFLICT(x_user_id) DO UPDATE SET x_username=excluded.x_username,x_account_created_at=excluded.x_account_created_at,checked_at=CURRENT_TIMESTAMP",
+            ).bind(userData.data.id, userData.data.username, userData.data.created_at),
+          );
+        }
+
+        await env.DB.batch(statements);
 
         const headers = new Headers();
         headers.set("Location", "https://solpitch.com/?auth=success");
@@ -399,11 +467,18 @@ export default {
 
       if (url.pathname === "/api/auth/x/session" && request.method === "GET") {
         const xSession = await getXSession(request, env);
-        return withCors(json(xSession ? {
+        if (!xSession) {
+          return withCors(json({ authenticated: false }), cors);
+        }
+
+        const eligibility = xVotingEligibility(xSession);
+        return withCors(json({
           authenticated: true,
           userId: xSession.x_user_id,
           username: xSession.x_username,
-        } : { authenticated: false }), cors);
+          votingEligible: eligibility.eligible,
+          eligibilityReason: eligibility.reason,
+        }), cors);
       }
 
       if (url.pathname === "/api/auth/x/logout" && request.method === "POST") {
@@ -416,6 +491,66 @@ export default {
         return withCors(json({ ok: true }, 200, {
           "set-cookie": `${X_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0`,
         }), cors);
+      }
+
+      if (url.pathname === "/api/votes/x" && request.method === "POST") {
+        const xSession = await getXSession(request, env);
+        if (!xSession) {
+          return withCors(json({ error: "Sign in with X to vote.", code: "x_login_required" }, 401), cors);
+        }
+
+        const eligibility = xVotingEligibility(xSession);
+        if (!eligibility.eligible) {
+          const message = eligibility.reason === "account_too_new"
+            ? "Your X account must be at least 60 days old to vote on SolPitch."
+            : "Sign out and sign in with X again so SolPitch can verify your account age.";
+          return withCors(json({ error: message, code: eligibility.reason }, 403), cors);
+        }
+
+        const body = await request.json<{ projectSlug?: string }>().catch(() => ({}));
+        const projectSlug = String(body.projectSlug ?? "").trim();
+        if (!projectSlug) {
+          return withCors(json({ error: "A live project is required." }, 400), cors);
+        }
+
+        const project = await env.DB.prepare(
+          "SELECT id,name,symbol FROM projects WHERE slug=?1 LIMIT 1",
+        ).bind(projectSlug).first<{ id: string; name: string; symbol: string }>();
+        if (!project) {
+          return withCors(json({ error: "This project is not published in the live database yet." }, 404), cors);
+        }
+
+        const currentWeek = weekKey();
+        const voteId = crypto.randomUUID();
+
+        try {
+          await env.DB.batch([
+            env.DB.prepare(
+              "INSERT INTO x_votes (id,project_id,x_user_id,week_key) VALUES (?1,?2,?3,?4)",
+            ).bind(voteId, project.id, xSession.x_user_id, currentWeek),
+            env.DB.prepare(
+              "UPDATE projects SET votes=(SELECT COUNT(*) FROM x_votes WHERE project_id=?1 AND week_key=?2),updated_at=CURRENT_TIMESTAMP WHERE id=?1",
+            ).bind(project.id, currentWeek),
+          ]);
+        } catch (error) {
+          if (String(error).includes("UNIQUE")) {
+            return withCors(json({
+              error: "You already voted for this project this week.",
+              code: "already_voted",
+            }, 409), cors);
+          }
+          throw error;
+        }
+
+        const count = await env.DB.prepare(
+          "SELECT votes FROM projects WHERE id=?1",
+        ).bind(project.id).first<{ votes: number }>();
+
+        return withCors(json({
+          ok: true,
+          votes: count?.votes ?? 0,
+          weekKey: currentWeek,
+        }, 201), cors);
       }
 
       if (url.pathname === "/api/submissions" && request.method === "POST") {
