@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import ProductionHome from "./ProductionHome";
+import SpotlightPortal from "./SpotlightPortal";
 import {
   analyzeToken,
   castXVote,
@@ -391,6 +392,8 @@ export default function OperatingApp() {
         onProjectsChanged={() => void refreshProjects()}
         onSubmitProject={() => void openSubmitProject()}
       />
+
+      <SpotlightPortal />
 
       {panel === "submit" && xSession.authenticated && (
         <SubmitProjectPanel onClose={() => setPanel(null)} />
