@@ -31,13 +31,7 @@ function normalizeLogoUrl(value: unknown) {
 
   if (!cid) return url;
 
-  // CIDv1 (bafy...) -> subdomain gateway
-  if (/^bafy/i.test(cid)) {
-    return `https://${cid}.ipfs.dweb.link/`;
-  }
-
-  // CIDv0 (Qm...) -> path-style gateway
-  return `https://dweb.link/ipfs/${cid}`;
+  return `${API_BASE}/api/ipfs/${encodeURIComponent(cid)}`;
 }
 
 export type TokenAnalysis = { found:boolean; address:string; tradable:boolean; name?:string; symbol?:string; logoUrl?:string; website?:string; xUrl?:string; telegramUrl?:string; dexScreenerUrl?:string; dexId?:string; pairAddress?:string; priceUsd?:string; liquidityUsd?:number; marketCap?:number; volume24h?:number; metadataFound?:number; metadataTotal?:number; analysisLevel?:"strong"|"review"|"manual"; description?:string; pitch?:string; metadataSource?:string; descriptionFound?:boolean };
