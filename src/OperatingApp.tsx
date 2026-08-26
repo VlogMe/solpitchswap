@@ -265,6 +265,11 @@ export default function OperatingApp() {
         event.preventDefault();
         event.stopPropagation();
 
+        window.alert(
+          "Voting is temporarily paused while SolPitch upgrades to X-account voting.",
+        );
+        return;
+
         if (voteBusy) return;
 
         const container = button.closest("article, .project-detail");
