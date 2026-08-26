@@ -29,7 +29,7 @@ function shareProjectOnX(project: Project) {
 }
 
 function SpotlightCard({ entry }: { entry: SpotlightEntry }) {
-  const { project, rank, periodVotes } = entry;
+  const { project, rank } = entry;
 
   return (
     <article className={`spotlight-card spotlight-rank-${rank}`}>
@@ -45,8 +45,6 @@ function SpotlightCard({ entry }: { entry: SpotlightEntry }) {
         </div>
         <div className="spotlight-title">${project.symbol}</div>
       </div>
-
-      <div className="spotlight-votes">{periodVotes}</div>
 
       <div className="spotlight-actions">
         <button type="button" className="ghost" onClick={() => openProject(project)}>
