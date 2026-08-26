@@ -77,4 +77,4 @@ jobs:
           git commit -m "Publish latest SolPitch build"
           git push origin gh-pages
 
-# republish trigger for CA copy confirmation
+# republish trigger for Spotlight
