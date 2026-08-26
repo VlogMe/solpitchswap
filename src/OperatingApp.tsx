@@ -2,13 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import ProductionHome from "./ProductionHome";
 import {
   analyzeToken,
-  createVoteNonce,
   getAdminSession,
   getPublishedProjects,
   getXLoginUrl,
   getXSession,
   logoutX,
-  submitVote,
   type XSession,
 } from "./api";
 import { AdminPanel, SubmitProjectPanel } from "./WorkflowPanels";
@@ -17,30 +15,6 @@ import type { Project } from "./types";
 import "./workflows.css";
 
 type Panel = "submit" | "admin" | "projects" | null;
-
-type PhantomProvider = {
-  isPhantom?: boolean;
-  publicKey?: { toString(): string };
-  connect(): Promise<{ publicKey: { toString(): string } }>;
-  signMessage(
-    message: Uint8Array,
-    display?: "utf8",
-  ): Promise<{ signature: Uint8Array }>;
-};
-
-declare global {
-  interface Window {
-    solana?: PhantomProvider;
-  }
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary);
-}
 
 function money(value?: number) {
   return value
@@ -60,7 +34,6 @@ export default function OperatingApp() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [projectError, setProjectError] = useState("");
-  const [voteBusy, setVoteBusy] = useState(false);
   const [adminRoute, setAdminRoute] = useState(
     () => window.location.hash === "#/admin-login",
   );
@@ -257,87 +230,22 @@ export default function OperatingApp() {
   }, [adminRoute]);
 
   useEffect(() => {
-    const capture = async (event: MouseEvent) => {
+    const capture = (event: MouseEvent) => {
       const button = (event.target as HTMLElement).closest("button");
-      if (!button) return;
+      if (!button?.classList.contains("vote")) return;
 
-      if (button.classList.contains("vote")) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        window.alert(
-          "Voting is temporarily paused while SolPitch upgrades to X-account voting.",
-        );
-        return;
-
-        if (voteBusy) return;
-
-        const container = button.closest("article, .project-detail");
-        const slug =
-          container?.getAttribute("data-project-slug") ?? "";
-        const project = projects.find((item) => item.slug === slug);
-
-        if (!project) {
-          window.alert(
-            "This project is not available in the live database.",
-          );
-          return;
-        }
-
-        const phantom = window.solana;
-
-        if (!phantom?.isPhantom) {
-          window.alert(
-            "Install or open Phantom to cast a verified weekly vote.",
-          );
-          return;
-        }
-
-        setVoteBusy(true);
-
-        try {
-          const connection = await phantom.connect();
-          const walletAddress = connection.publicKey.toString();
-          const nonce = await createVoteNonce(
-            project.slug,
-            walletAddress,
-          );
-          const signed = await phantom.signMessage(
-            new TextEncoder().encode(nonce.message),
-            "utf8",
-          );
-          const result = await submitVote({
-            nonce: nonce.nonce,
-            walletAddress,
-            signature: bytesToBase64(signed.signature),
-          });
-
-          await refreshProjects();
-
-          window.alert(
-            `Vote counted. ${project.name} now has ${result.votes} verified vote${
-              result.votes === 1 ? "" : "s"
-            } this week.`,
-          );
-        } catch (error) {
-          window.alert(
-            error instanceof Error
-              ? error.message
-              : "The vote could not be completed.",
-          );
-        } finally {
-          setVoteBusy(false);
-        }
-
-        return;
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      window.alert(
+        "Voting is temporarily paused while SolPitch upgrades to X-account voting.",
+      );
     };
 
     document.addEventListener("click", capture, true);
 
     return () =>
       document.removeEventListener("click", capture, true);
-  }, [openSubmitProject, projects, refreshProjects, voteBusy]);
+  }, []);
 
   if (adminRoute) {
     if (!adminAuthenticated) {
