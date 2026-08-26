@@ -16,7 +16,7 @@ function weekKey(date = new Date()) {
 
 async function restoreLegacyTotals(env: Env) {
   const restored = await env.DB.prepare(
-    "SELECT value FROM x_voting_state WHERE key='legacy_vote_restore_v1' LIMIT 1",
+    "SELECT value FROM x_voting_state WHERE key='legacy_vote_restore_v2' LIMIT 1",
   ).first<{ value: string }>();
   if (restored) return;
 
@@ -24,13 +24,13 @@ async function restoreLegacyTotals(env: Env) {
   await env.DB.prepare(
     `UPDATE projects
      SET votes =
-       (SELECT COUNT(*) FROM wallet_votes w WHERE w.project_id=projects.id AND w.week_key=?1) +
+       (SELECT COUNT(*) FROM wallet_votes w WHERE w.project_id=projects.id) +
        (SELECT COUNT(*) FROM x_votes x WHERE x.project_id=projects.id AND x.week_key=?1),
        updated_at=CURRENT_TIMESTAMP`,
   ).bind(currentWeek).run();
 
   await env.DB.prepare(
-    "INSERT OR REPLACE INTO x_voting_state (key,value) VALUES ('legacy_vote_restore_v1',CURRENT_TIMESTAMP)",
+    "INSERT OR REPLACE INTO x_voting_state (key,value) VALUES ('legacy_vote_restore_v2',CURRENT_TIMESTAMP)",
   ).run();
 }
 
@@ -44,7 +44,7 @@ async function recountCombinedProject(env: Env, projectSlug: string) {
   await env.DB.prepare(
     `UPDATE projects
      SET votes =
-       (SELECT COUNT(*) FROM wallet_votes w WHERE w.project_id=?1 AND w.week_key=?2) +
+       (SELECT COUNT(*) FROM wallet_votes w WHERE w.project_id=?1) +
        (SELECT COUNT(*) FROM x_votes x WHERE x.project_id=?1 AND x.week_key=?2),
        updated_at=CURRENT_TIMESTAMP
      WHERE id=?1`,
