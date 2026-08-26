@@ -160,9 +160,14 @@
               heading.textContent = 'Most Voted Projects';
             }
 
+            const subtitle = widget.querySelector('.widget-title small');
+            if (subtitle && subtitle.textContent !== 'X-account weekly leaderboard') {
+              subtitle.textContent = 'X-account weekly leaderboard';
+            }
+
             const note = widget.querySelector('.ranking-note');
-            if (note && note.textContent !== 'Use your Phantom wallet to vote once per week') {
-              note.textContent = 'Use your Phantom wallet to vote once per week';
+            if (note && note.textContent !== 'Eligible X accounts (60+ days old) can vote once per project each week.') {
+              note.textContent = 'Eligible X accounts (60+ days old) can vote once per project each week.';
             }
           }
 
