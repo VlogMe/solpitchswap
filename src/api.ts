@@ -38,7 +38,7 @@ export type TokenAnalysis = { found:boolean; address:string; tradable:boolean; n
 export type ClaimRequest = { id:string; projectName:string; projectSymbol:string; projectSlug:string; walletAddress:string; evidenceUrl:string; submitterEmail:string; createdAt:string };
 export type ActivityEvent = { id:string; projectId?:string; eventType:string; eventText:string; createdAt:string; slug?:string; name?:string; symbol?:string; logoUrl?:string };
 export type SubmissionPayload = { name:string; symbol:string; contractAddress:string; projectStatus:ProjectStatus; pitch:string; description:string; website?:string; xUrl?:string; telegramUrl?:string; logoUrl?:string; statusProofUrl:string; submitterEmail:string; turnstileToken?:string };
-export type XSession = { authenticated:boolean; username?:string; userId?:string };
+export type XSession = { authenticated:boolean; username?:string; userId?:string; votingEligible?:boolean; eligibilityReason?:"account_too_new"|"eligibility_unverified"|null };
 export type MyProjectUpdate = { name?:string; pitch?:string; description?:string; website?:string; xUrl?:string; telegramUrl?:string; logoUrl?:string };
 
 export function getXLoginUrl(){return `${API_BASE}/api/auth/x/login`;}
@@ -55,6 +55,7 @@ export async function createClaimNonce(projectSlug:string,walletAddress:string){
 export async function submitClaim(payload:{nonce:string;walletAddress:string;signature:string;evidenceUrl?:string;submitterEmail?:string}){return request<{id:string;status:"pending"}>('/api/claims',{method:'POST',body:JSON.stringify(payload)});}
 export async function createVoteNonce(projectSlug:string,walletAddress:string){return request<{nonce:string;message:string;weekKey:string}>('/api/votes/nonce',{method:'POST',body:JSON.stringify({projectSlug,walletAddress})});}
 export async function submitVote(payload:{nonce:string;walletAddress:string;signature:string}){return request<{ok:true;votes:number;weekKey:string}>('/api/votes',{method:'POST',body:JSON.stringify(payload)});}
+export async function castXVote(projectSlug:string){return request<{ok:true;votes:number;weekKey:string}>('/api/votes/x',{method:'POST',body:JSON.stringify({projectSlug})});}
 export async function adminLogin(password:string){return request<{ok:true}>('/api/admin/login',{method:'POST',body:JSON.stringify({password})});}
 export async function adminLogout(){return request<{ok:true}>('/api/admin/logout',{method:'POST',body:'{}'});}
 export async function getAdminSession(){return request<{authenticated:boolean}>('/api/admin/session');}
