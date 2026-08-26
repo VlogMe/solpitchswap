@@ -43,12 +43,54 @@ async function analyzeAddress(request: Request, env: Env, address: string) {
   return baseWorker.fetch(new Request(url.toString(), request), env);
 }
 
+const IPFS_CID = /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]{20,})$/i;
+
+async function proxyIpfsImage(cid: string) {
+  if (!IPFS_CID.test(cid)) {
+    return json({ error: "Invalid IPFS CID." }, 400);
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`https://ipfs.io/ipfs/${encodeURIComponent(cid)}`, {
+      signal: AbortSignal.timeout(10000),
+      headers: { accept: "image/*,*/*;q=0.8" },
+    });
+  } catch {
+    return json({ error: "IPFS gateway timeout or network error." }, 502);
+  }
+
+  if (!upstream.ok) {
+    return json({ error: "IPFS content unavailable." }, upstream.status === 404 ? 404 : 502);
+  }
+
+  const contentType = (upstream.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (!contentType.startsWith("image/")) {
+    return json({ error: "Upstream response is not an image." }, 415);
+  }
+
+  return new Response(upstream.body, {
+    status: 200,
+    headers: {
+      "content-type": contentType,
+      "cross-origin-resource-policy": "cross-origin",
+      "cache-control": "public, max-age=86400",
+    },
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const cors = corsHeaders(request, env);
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+
+    const ipfsMatch = url.pathname.match(/^\/api\/ipfs\/([^/]+)\/?$/);
+    if (ipfsMatch) {
+      if (request.method !== "GET") return json({ error: "Method not allowed." }, 405, cors);
+      return proxyIpfsImage(ipfsMatch[1]);
+    }
 
     const marketMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/market$/);
     if (marketMatch && request.method === "GET") {
