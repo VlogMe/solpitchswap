@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import ProductionHome from "./ProductionHome";
 import {
   analyzeToken,
+  castXVote,
   getAdminSession,
   getPublishedProjects,
   getXLoginUrl,
@@ -34,6 +35,7 @@ export default function OperatingApp() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [projectError, setProjectError] = useState("");
+  const [voteBusy, setVoteBusy] = useState(false);
   const [adminRoute, setAdminRoute] = useState(
     () => window.location.hash === "#/admin-login",
   );
@@ -230,22 +232,66 @@ export default function OperatingApp() {
   }, [adminRoute]);
 
   useEffect(() => {
-    const capture = (event: MouseEvent) => {
-      const button = (event.target as HTMLElement).closest("button");
+    const capture = async (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const button = target.closest("button");
       if (!button?.classList.contains("vote")) return;
 
       event.preventDefault();
       event.stopPropagation();
-      window.alert(
-        "Voting is temporarily paused while SolPitch upgrades to X-account voting.",
-      );
+
+      if (voteBusy) return;
+
+      const container = button.closest("article, .project-detail");
+      const slug = container?.getAttribute("data-project-slug") ?? "";
+      const project = projects.find((item) => item.slug === slug);
+
+      if (!project) {
+        window.alert("This project is not available in the live database.");
+        return;
+      }
+
+      if (!xSession.authenticated) {
+        window.alert("Sign in with X to vote. Eligible X accounts must be at least 60 days old.");
+        beginXLogin();
+        return;
+      }
+
+      if (xSession.votingEligible === false) {
+        window.alert(
+          xSession.eligibilityReason === "account_too_new"
+            ? "Your X account must be at least 60 days old to vote on SolPitch."
+            : "Sign out and sign in with X again so SolPitch can verify your account age.",
+        );
+        return;
+      }
+
+      setVoteBusy(true);
+
+      try {
+        const result = await castXVote(project.slug);
+        await refreshProjects();
+        window.alert(
+          `Vote counted. ${project.name} now has ${result.votes} X vote${result.votes === 1 ? "" : "s"} this week.`,
+        );
+      } catch (error) {
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : "The vote could not be completed.",
+        );
+      } finally {
+        setVoteBusy(false);
+      }
     };
 
     document.addEventListener("click", capture, true);
 
     return () =>
       document.removeEventListener("click", capture, true);
-  }, []);
+  }, [beginXLogin, projects, refreshProjects, voteBusy, xSession]);
 
   if (adminRoute) {
     if (!adminAuthenticated) {
