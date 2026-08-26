@@ -40,6 +40,8 @@ export type ActivityEvent = { id:string; projectId?:string; eventType:string; ev
 export type SubmissionPayload = { name:string; symbol:string; contractAddress:string; projectStatus:ProjectStatus; pitch:string; description:string; website?:string; xUrl?:string; telegramUrl?:string; logoUrl?:string; statusProofUrl:string; submitterEmail:string; turnstileToken?:string };
 export type XSession = { authenticated:boolean; username?:string; userId?:string; votingEligible?:boolean; eligibilityReason?:"account_too_new"|"eligibility_unverified"|null };
 export type MyProjectUpdate = { name?:string; pitch?:string; description?:string; website?:string; xUrl?:string; telegramUrl?:string; logoUrl?:string };
+export type SpotlightEntry = { rank:number; periodVotes:number; project:Project };
+export type SpotlightResponse = { weekKey:string; entries:SpotlightEntry[] };
 
 export function getXLoginUrl(){return `${API_BASE}/api/auth/x/login`;}
 export async function getXSession(){return request<XSession>('/api/auth/x/session');}
@@ -49,6 +51,7 @@ export async function updateMyProject(id:string,payload:MyProjectUpdate){return 
 export async function deleteMyProject(id:string){return request<{ok:true}>(`/api/my/projects/${encodeURIComponent(id)}`,{method:'DELETE'});}
 export async function analyzeToken(address:string){const result=await request<TokenAnalysis>(`/api/analyze-token?address=${encodeURIComponent(address)}`);return{...result,logoUrl:normalizeLogoUrl(result.logoUrl)||undefined};}
 export async function getPublishedProjects(){const result=await request<{projects:Record<string,unknown>[]}>('/api/projects');return result.projects.map(mapProjectRow);}
+export async function getSpotlight(){const result=await request<{weekKey:string;projects:Record<string,unknown>[]}>('/api/spotlight');return{weekKey:result.weekKey,entries:result.projects.map(row=>({rank:Number(row.rank??0),periodVotes:Number(row.period_votes??0),project:mapProjectRow({...row,votes:row.period_votes})}))} satisfies SpotlightResponse;}
 export async function getActivity(){const result=await request<{events:Record<string,unknown>[]}>('/api/activity');return result.events.map(row=>({id:String(row.id),projectId:String(row.project_id??'')||undefined,eventType:String(row.event_type),eventText:String(row.event_text),createdAt:String(row.created_at),slug:String(row.slug??'')||undefined,name:String(row.name??'')||undefined,symbol:String(row.symbol??'')||undefined,logoUrl:normalizeLogoUrl(row.logo_url)||undefined}));}
 export async function submitCoin(payload:SubmissionPayload){return request<{id:string;status:"pending";projectStatus:ProjectStatus}>('/api/submissions',{method:'POST',body:JSON.stringify(payload)});}
 export async function createClaimNonce(projectSlug:string,walletAddress:string){return request<{nonce:string;message:string}>('/api/claims/nonce',{method:'POST',body:JSON.stringify({projectSlug,walletAddress})});}
