@@ -43,10 +43,10 @@ function SpotlightCard({ entry }: { entry: SpotlightEntry }) {
             project.symbol.slice(0, 2)
           )}
         </div>
+        <div className="spotlight-title">${project.symbol}</div>
       </div>
 
-      <div className="spotlight-title">${project.symbol}</div>
-      <div className="spotlight-votes">▲ {periodVotes}</div>
+      <div className="spotlight-votes">{periodVotes}</div>
 
       <div className="spotlight-actions">
         <button type="button" className="ghost" onClick={() => openProject(project)}>
