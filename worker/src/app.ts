@@ -256,6 +256,17 @@ export default {
       return json({ events: events.results }, 200, { ...cors, "cache-control": "public, max-age=15" });
     }
 
+    if (
+      (url.pathname === "/api/votes/nonce" || url.pathname === "/api/votes") &&
+      request.method === "POST"
+    ) {
+      return json(
+        { error: "Wallet voting is temporarily disabled while SolPitch upgrades to X-account voting." },
+        410,
+        cors,
+      );
+    }
+
     if (url.pathname === "/api/votes/nonce" && request.method === "POST") {
       const body = await request.json<{ projectSlug?: string; walletAddress?: string }>().catch(() => ({}));
       if (!body.projectSlug || !body.walletAddress || !SOLANA_ADDRESS.test(body.walletAddress)) {
