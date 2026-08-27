@@ -66,7 +66,7 @@ type ClaimSubmission = {
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const X_SESSION_COOKIE = "solpitch_x_session";
 const X_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
-const X_MIN_ACCOUNT_AGE_MS = 60 * 24 * 60 * 60 * 1000;
+const X_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 let xVotingSchemaReady = false;
 
 async function ensureXVotingSchema(env: Env) {
@@ -502,7 +502,7 @@ export default {
         const eligibility = xVotingEligibility(xSession);
         if (!eligibility.eligible) {
           const message = eligibility.reason === "account_too_new"
-            ? "Your X account must be at least 60 days old to vote on SolPitch."
+            ? "Your X account must be at least 7 days old to vote on SolPitch."
             : "Sign out and sign in with X again so SolPitch can verify your account age.";
           return withCors(json({ error: message, code: eligibility.reason }, 403), cors);
         }
