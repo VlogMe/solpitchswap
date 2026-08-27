@@ -178,15 +178,26 @@ export default function OperatingApp() {
 
   const showVoteNotice = useCallback((slug: string, message: string) => {
     setVoteNotice({ slug, message });
+    window.setTimeout(() => {
+      setVoteNotice((current) =>
+        current?.slug === slug && current.message === message ? null : current,
+      );
+    }, 4500);
   }, []);
 
   const restoreVoteTarget = useCallback((slug: string, hash: string) => {
     if (hash) {
-      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${hash}`,
+      );
     }
 
     window.requestAnimationFrame(() => {
-      const target = document.querySelector(`[data-project-slug="${CSS.escape(slug)}"]`);
+      const target = document.querySelector(
+        `[data-project-slug="${CSS.escape(slug)}"]`,
+      );
       target?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }, []);
@@ -235,11 +246,27 @@ export default function OperatingApp() {
         sessionStorage.removeItem(X_LOGIN_INTENT_KEY);
         restoreVoteTarget(voteIntent.slug, voteIntent.hash);
 
-        const projectExists = projects.some((project) => project.slug === voteIntent.slug);
-        if (!projectExists) {
-          showVoteNotice(voteIntent.slug, "This project is not available in the live database.");
+        let liveProjects: Project[];
+        try {
+          liveProjects = await getPublishedProjects();
+        } catch {
+          showVoteNotice(
+            voteIntent.slug,
+            "The project list could not be verified. Please try again.",
+          );
           return;
         }
+
+        if (!liveProjects.some((project) => project.slug === voteIntent.slug)) {
+          showVoteNotice(
+            voteIntent.slug,
+            "This project is not available in the live database.",
+          );
+          return;
+        }
+
+        await refreshProjects();
+        restoreVoteTarget(voteIntent.slug, voteIntent.hash);
 
         if (session.votingEligible === false) {
           showVoteNotice(
@@ -255,8 +282,10 @@ export default function OperatingApp() {
           setVoteBusy(true);
           await castXVote(voteIntent.slug);
           await refreshProjects();
+          restoreVoteTarget(voteIntent.slug, voteIntent.hash);
           showVoteNotice(voteIntent.slug, "Vote counted.");
         } catch (error) {
+          restoreVoteTarget(voteIntent.slug, voteIntent.hash);
           showVoteNotice(
             voteIntent.slug,
             error instanceof Error
@@ -278,7 +307,7 @@ export default function OperatingApp() {
     return () => {
       cancelled = true;
     };
-  }, [projects, refreshProjects, refreshXSession, restoreVoteTarget, showVoteNotice]);
+  }, [refreshProjects, refreshXSession, restoreVoteTarget, showVoteNotice]);
 
   useEffect(() => {
     const sync = () => {
@@ -372,8 +401,10 @@ export default function OperatingApp() {
       try {
         await castXVote(project.slug);
         await refreshProjects();
+        restoreVoteTarget(project.slug, window.location.hash);
         showVoteNotice(project.slug, "Vote counted.");
       } catch (error) {
+        restoreVoteTarget(project.slug, window.location.hash);
         showVoteNotice(
           project.slug,
           error instanceof Error
@@ -389,7 +420,15 @@ export default function OperatingApp() {
 
     return () =>
       document.removeEventListener("click", capture, true);
-  }, [beginXLogin, projects, refreshProjects, restoreVoteTarget, showVoteNotice, voteBusy, xSession]);
+  }, [
+    beginXLogin,
+    projects,
+    refreshProjects,
+    restoreVoteTarget,
+    showVoteNotice,
+    voteBusy,
+    xSession,
+  ]);
 
   if (adminRoute) {
     if (!adminAuthenticated) {
