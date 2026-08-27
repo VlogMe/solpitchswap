@@ -255,7 +255,7 @@ export default function OperatingApp() {
       }
 
       if (!xSession.authenticated) {
-        window.alert("Sign in with X to vote. Eligible X accounts must be at least 60 days old.");
+        window.alert("Sign in with X to vote. Eligible X accounts must be at least 7 days old.");
         beginXLogin();
         return;
       }
@@ -263,7 +263,7 @@ export default function OperatingApp() {
       if (xSession.votingEligible === false) {
         window.alert(
           xSession.eligibilityReason === "account_too_new"
-            ? "Your X account must be at least 60 days old to vote on SolPitch."
+            ? "Your X account must be at least 7 days old to vote on SolPitch."
             : "Sign out and sign in with X again so SolPitch can verify your account age.",
         );
         return;
