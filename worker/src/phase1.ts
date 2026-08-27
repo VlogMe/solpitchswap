@@ -57,11 +57,9 @@ async function recountCombinedProject(env: Env, projectSlug: string) {
 }
 
 async function getCurrentFeaturedRows(env: Env) {
-  const latest = await env.DB.prepare(
+  const live = await env.DB.prepare(
     `SELECT
-      rank,
-      period_votes,
-      project_id AS id,
+      id,
       slug,
       name,
       symbol,
@@ -76,16 +74,19 @@ async function getCurrentFeaturedRows(env: Env) {
       logo_url,
       added_to_swap,
       promoted,
+      votes AS period_votes,
       x_user_id,
       x_username,
-      published_at,
-      created_at
-     FROM spotlight_snapshots
-     ORDER BY created_at DESC, rank ASC
+      published_at
+     FROM projects
+     ORDER BY votes DESC
      LIMIT 3`,
   ).all<Record<string, unknown>>();
 
-  return [...latest.results].sort((a, b) => Number(a.rank ?? 0) - Number(b.rank ?? 0));
+  return live.results.map((project, index) => ({
+    ...project,
+    rank: index + 1,
+  }));
 }
 
 function spotlightJson(request: Request, env: Env, data: unknown) {
