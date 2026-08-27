@@ -1035,7 +1035,11 @@ export default function ProductionHome({
   const ranked = useMemo(
     () =>
       [...projects].sort(
-        (a, b) => b.votes - a.votes,
+        (a, b) =>
+          b.votes - a.votes ||
+          (b.publishedAt ?? "").localeCompare(
+            a.publishedAt ?? "",
+          ),
       ),
     [projects],
   );
