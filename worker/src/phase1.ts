@@ -79,7 +79,7 @@ async function getCurrentFeaturedRows(env: Env) {
       x_username,
       published_at
      FROM projects
-     ORDER BY votes DESC
+     ORDER BY votes DESC, published_at DESC
      LIMIT 3`,
   ).all<Record<string, unknown>>();
 
