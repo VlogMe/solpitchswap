@@ -38,6 +38,7 @@ function money(value?: number) {
 }
 
 const X_LOGIN_INTENT_KEY = "solpitch_x_login_intent";
+let projectsRefreshSequence = 0;
 
 function readXLoginIntent(): XLoginIntent | null {
   const raw = sessionStorage.getItem(X_LOGIN_INTENT_KEY);
@@ -82,11 +83,14 @@ export default function OperatingApp() {
   });
 
   const refreshProjects = useCallback(async () => {
+    const refreshSequence = ++projectsRefreshSequence;
     setLoadingProjects(true);
     setProjectError("");
 
     try {
       const published = await getPublishedProjects();
+      if (refreshSequence !== projectsRefreshSequence) return;
+
       setProjects(published);
       setLoadingProjects(false);
 
@@ -117,8 +121,11 @@ export default function OperatingApp() {
         }),
       );
 
+      if (refreshSequence !== projectsRefreshSequence) return;
       setProjects(enriched);
     } catch (error) {
+      if (refreshSequence !== projectsRefreshSequence) return;
+
       setProjects([]);
       setProjectError(
         error instanceof Error
@@ -285,6 +292,7 @@ export default function OperatingApp() {
           restoreVoteTarget(voteIntent.slug, voteIntent.hash);
           showVoteNotice(voteIntent.slug, "Vote counted.");
         } catch (error) {
+          await refreshProjects();
           restoreVoteTarget(voteIntent.slug, voteIntent.hash);
           showVoteNotice(
             voteIntent.slug,
@@ -404,6 +412,7 @@ export default function OperatingApp() {
         restoreVoteTarget(project.slug, window.location.hash);
         showVoteNotice(project.slug, "Vote counted.");
       } catch (error) {
+        await refreshProjects();
         restoreVoteTarget(project.slug, window.location.hash);
         showVoteNotice(
           project.slug,
