@@ -93,7 +93,7 @@ function SpotlightBlock() {
       <div className="spotlight-heading">
         <div>
           <span className="spotlight-eyebrow">🔥 SOLPITCH SPOTLIGHT</span>
-          <h2>SolPitch Spotlight</h2>
+          <h2>Trending Now</h2>
         </div>
       </div>
 
