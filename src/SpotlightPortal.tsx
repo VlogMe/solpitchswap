@@ -63,7 +63,6 @@ function SpotlightCard({ entry }: { entry: SpotlightEntry }) {
 
 function SpotlightBlock() {
   const [entries, setEntries] = useState<SpotlightEntry[]>([]);
-  const [weekKey, setWeekKey] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,7 +73,6 @@ function SpotlightBlock() {
         const result = await getSpotlight();
         if (!cancelled) {
           setEntries(result.entries);
-          setWeekKey(result.weekKey);
         }
       } catch {
         if (!cancelled) setEntries([]);
@@ -96,17 +94,15 @@ function SpotlightBlock() {
         <div>
           <span className="spotlight-eyebrow">🔥 SOLPITCH SPOTLIGHT</span>
           <h2>SolPitch Spotlight</h2>
-          <p>Community leaders this week</p>
         </div>
-        {weekKey && <small>{weekKey}</small>}
       </div>
 
       {loading ? (
-        <div className="spotlight-empty">Loading this week’s Spotlight…</div>
+        <div className="spotlight-empty">Loading Spotlight…</div>
       ) : entries.length > 0 ? (
         <div className="spotlight-grid">
           {entries.map((entry) => (
-            <SpotlightCard key={`${weekKey}-${entry.rank}`} entry={entry} />
+            <SpotlightCard key={`${entry.rank}-${entry.project.slug}`} entry={entry} />
           ))}
         </div>
       ) : (
