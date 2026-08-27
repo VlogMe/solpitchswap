@@ -6,28 +6,6 @@ interface Env {
   [key: string]: unknown;
 }
 
-type SpotlightProjectRow = {
-  id: string;
-  slug: string;
-  name: string;
-  symbol: string;
-  contract_address: string;
-  project_status: string;
-  claim_status: string;
-  pitch: string;
-  description: string;
-  website: string | null;
-  x_url: string | null;
-  telegram_url: string | null;
-  logo_url: string | null;
-  added_to_swap: number;
-  promoted: number;
-  votes: number;
-  x_user_id: string | null;
-  x_username: string | null;
-  published_at: string | null;
-};
-
 function weekKey(date = new Date()) {
   const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = target.getUTCDay() || 7;
@@ -78,40 +56,8 @@ async function recountCombinedProject(env: Env, projectSlug: string) {
     .first<{ votes: number }>();
 }
 
-async function ensureSpotlightSchema(env: Env) {
-  await env.DB.prepare(
-    `CREATE TABLE IF NOT EXISTS spotlight_snapshots (
-      week_key TEXT NOT NULL,
-      rank INTEGER NOT NULL CHECK (rank BETWEEN 1 AND 3),
-      project_id TEXT NOT NULL,
-      period_votes INTEGER NOT NULL,
-      slug TEXT NOT NULL,
-      name TEXT NOT NULL,
-      symbol TEXT NOT NULL,
-      contract_address TEXT NOT NULL,
-      project_status TEXT NOT NULL,
-      claim_status TEXT NOT NULL,
-      pitch TEXT NOT NULL,
-      description TEXT NOT NULL,
-      website TEXT,
-      x_url TEXT,
-      telegram_url TEXT,
-      logo_url TEXT,
-      added_to_swap INTEGER NOT NULL DEFAULT 0,
-      promoted INTEGER NOT NULL DEFAULT 0,
-      x_user_id TEXT,
-      x_username TEXT,
-      published_at TEXT,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(week_key, rank)
-    )`,
-  ).run();
-}
-
-async function getSpotlightRows(env: Env, currentWeek: string) {
-  await ensureSpotlightSchema(env);
-
-  const existing = await env.DB.prepare(
+async function getCurrentFeaturedRows(env: Env) {
+  const latest = await env.DB.prepare(
     `SELECT
       rank,
       period_votes,
@@ -135,110 +81,11 @@ async function getSpotlightRows(env: Env, currentWeek: string) {
       published_at,
       created_at
      FROM spotlight_snapshots
-     WHERE week_key=?1
-     ORDER BY rank ASC`,
-  ).bind(currentWeek).all<Record<string, unknown>>();
-
-  if (existing.results.length > 0) return existing.results;
-
-  const leaders = await env.DB.prepare(
-    `SELECT
-      id,
-      slug,
-      name,
-      symbol,
-      contract_address,
-      project_status,
-      claim_status,
-      pitch,
-      description,
-      website,
-      x_url,
-      telegram_url,
-      logo_url,
-      added_to_swap,
-      promoted,
-      votes,
-      x_user_id,
-      x_username,
-      published_at
-     FROM projects
-     WHERE votes > 0
-     ORDER BY votes DESC, published_at ASC, id ASC
+     ORDER BY created_at DESC, rank ASC
      LIMIT 3`,
-  ).all<SpotlightProjectRow>();
+  ).all<Record<string, unknown>>();
 
-  if (leaders.results.length > 0) {
-    await env.DB.batch(
-      leaders.results.map((project, index) =>
-        env.DB.prepare(
-          `INSERT OR IGNORE INTO spotlight_snapshots (
-            week_key, rank, project_id, period_votes, slug, name, symbol,
-            contract_address, project_status, claim_status, pitch, description,
-            website, x_url, telegram_url, logo_url, added_to_swap, promoted,
-            x_user_id, x_username, published_at
-          ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7,
-            ?8, ?9, ?10, ?11, ?12,
-            ?13, ?14, ?15, ?16, ?17, ?18,
-            ?19, ?20, ?21
-          )`,
-        ).bind(
-          currentWeek,
-          index + 1,
-          project.id,
-          project.votes,
-          project.slug,
-          project.name,
-          project.symbol,
-          project.contract_address,
-          project.project_status,
-          project.claim_status,
-          project.pitch,
-          project.description,
-          project.website,
-          project.x_url,
-          project.telegram_url,
-          project.logo_url,
-          project.added_to_swap,
-          project.promoted,
-          project.x_user_id,
-          project.x_username,
-          project.published_at,
-        ),
-      ),
-    );
-  }
-
-  const snapshot = await env.DB.prepare(
-    `SELECT
-      rank,
-      period_votes,
-      project_id AS id,
-      slug,
-      name,
-      symbol,
-      contract_address,
-      project_status,
-      claim_status,
-      pitch,
-      description,
-      website,
-      x_url,
-      telegram_url,
-      logo_url,
-      added_to_swap,
-      promoted,
-      x_user_id,
-      x_username,
-      published_at,
-      created_at
-     FROM spotlight_snapshots
-     WHERE week_key=?1
-     ORDER BY rank ASC`,
-  ).bind(currentWeek).all<Record<string, unknown>>();
-
-  return snapshot.results;
+  return [...latest.results].sort((a, b) => Number(a.rank ?? 0) - Number(b.rank ?? 0));
 }
 
 function spotlightJson(request: Request, env: Env, data: unknown) {
@@ -262,9 +109,8 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/spotlight" && request.method === "GET") {
-      const currentWeek = weekKey();
-      const projects = await getSpotlightRows(env, currentWeek);
-      return spotlightJson(request, env, { weekKey: currentWeek, projects });
+      const projects = await getCurrentFeaturedRows(env);
+      return spotlightJson(request, env, { projects });
     }
 
     const isXVote = url.pathname === "/api/votes/x" && request.method === "POST";
