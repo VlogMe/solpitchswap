@@ -393,7 +393,11 @@ export default function OperatingApp() {
         onSubmitProject={() => void openSubmitProject()}
       />
 
-      <SpotlightPortal />
+      <SpotlightPortal
+        refreshKey={projects
+          .map((project) => `${project.slug}:${project.votes}:${project.publishedAt ?? ""}`)
+          .join("|")}
+      />
 
       {panel === "submit" && xSession.authenticated && (
         <SubmitProjectPanel onClose={() => setPanel(null)} />
