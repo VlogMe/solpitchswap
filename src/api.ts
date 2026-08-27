@@ -25,7 +25,7 @@ function normalizeLogoUrl(value: unknown) {
 
   const cid =
     ipfsMatch?.[1] ??
-    (/^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]+)$/i.test(url)
+    (/^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]+|bafkre[a-z2-7]+)$/i.test(url)
       ? url
       : "");
 
