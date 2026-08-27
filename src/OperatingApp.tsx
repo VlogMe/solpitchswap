@@ -17,6 +17,14 @@ import type { Project } from "./types";
 import "./workflows.css";
 
 type Panel = "submit" | "admin" | "projects" | null;
+type XLoginIntent =
+  | { intent: "submit" }
+  | { intent: "vote"; slug: string; hash: string };
+
+type VoteNotice = {
+  slug: string;
+  message: string;
+};
 
 function money(value?: number) {
   return value
@@ -31,12 +39,40 @@ function money(value?: number) {
 
 const X_LOGIN_INTENT_KEY = "solpitch_x_login_intent";
 
+function readXLoginIntent(): XLoginIntent | null {
+  const raw = sessionStorage.getItem(X_LOGIN_INTENT_KEY);
+  if (!raw) return null;
+
+  if (raw === "submit") return { intent: "submit" };
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<XLoginIntent>;
+    if (parsed.intent === "submit") return { intent: "submit" };
+    if (
+      parsed.intent === "vote" &&
+      typeof parsed.slug === "string" &&
+      typeof parsed.hash === "string"
+    ) {
+      return { intent: "vote", slug: parsed.slug, hash: parsed.hash };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function writeXLoginIntent(intent: XLoginIntent) {
+  sessionStorage.setItem(X_LOGIN_INTENT_KEY, JSON.stringify(intent));
+}
+
 export default function OperatingApp() {
   const [panel, setPanel] = useState<Panel>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [projectError, setProjectError] = useState("");
   const [voteBusy, setVoteBusy] = useState(false);
+  const [voteNotice, setVoteNotice] = useState<VoteNotice | null>(null);
   const [adminRoute, setAdminRoute] = useState(
     () => window.location.hash === "#/admin-login",
   );
@@ -105,9 +141,9 @@ export default function OperatingApp() {
     }
   }, []);
 
-  const beginXLogin = useCallback((intent?: "submit") => {
+  const beginXLogin = useCallback((intent?: XLoginIntent) => {
     if (intent) {
-      sessionStorage.setItem(X_LOGIN_INTENT_KEY, intent);
+      writeXLoginIntent(intent);
     } else {
       sessionStorage.removeItem(X_LOGIN_INTENT_KEY);
     }
@@ -123,7 +159,7 @@ export default function OperatingApp() {
     }
 
     if (!session.authenticated) {
-      beginXLogin("submit");
+      beginXLogin({ intent: "submit" });
       return;
     }
 
@@ -140,6 +176,21 @@ export default function OperatingApp() {
     }
   }, []);
 
+  const showVoteNotice = useCallback((slug: string, message: string) => {
+    setVoteNotice({ slug, message });
+  }, []);
+
+  const restoreVoteTarget = useCallback((slug: string, hash: string) => {
+    if (hash) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
+    }
+
+    window.requestAnimationFrame(() => {
+      const target = document.querySelector(`[data-project-slug="${CSS.escape(slug)}"]`);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, []);
+
   useEffect(() => {
     void refreshProjects();
   }, [refreshProjects]);
@@ -154,7 +205,7 @@ export default function OperatingApp() {
 
       const params = new URLSearchParams(window.location.search);
       const authResult = params.get("auth");
-      const intent = sessionStorage.getItem(X_LOGIN_INTENT_KEY);
+      const intent = readXLoginIntent();
 
       if (authResult) {
         params.delete("auth");
@@ -169,10 +220,52 @@ export default function OperatingApp() {
       if (
         authResult === "success" &&
         session.authenticated &&
-        intent === "submit"
+        intent?.intent === "submit"
       ) {
         sessionStorage.removeItem(X_LOGIN_INTENT_KEY);
         setPanel("submit");
+      }
+
+      if (
+        authResult === "success" &&
+        session.authenticated &&
+        intent?.intent === "vote"
+      ) {
+        const voteIntent = intent;
+        sessionStorage.removeItem(X_LOGIN_INTENT_KEY);
+        restoreVoteTarget(voteIntent.slug, voteIntent.hash);
+
+        const projectExists = projects.some((project) => project.slug === voteIntent.slug);
+        if (!projectExists) {
+          showVoteNotice(voteIntent.slug, "This project is not available in the live database.");
+          return;
+        }
+
+        if (session.votingEligible === false) {
+          showVoteNotice(
+            voteIntent.slug,
+            session.eligibilityReason === "account_too_new"
+              ? "Your X account must be at least 7 days old to vote on SolPitch."
+              : "Sign out and sign in with X again so SolPitch can verify your account age.",
+          );
+          return;
+        }
+
+        try {
+          setVoteBusy(true);
+          await castXVote(voteIntent.slug);
+          await refreshProjects();
+          showVoteNotice(voteIntent.slug, "Vote counted.");
+        } catch (error) {
+          showVoteNotice(
+            voteIntent.slug,
+            error instanceof Error
+              ? error.message
+              : "The vote could not be completed.",
+          );
+        } finally {
+          setVoteBusy(false);
+        }
       }
 
       if (authResult === "error") {
@@ -185,7 +278,7 @@ export default function OperatingApp() {
     return () => {
       cancelled = true;
     };
-  }, [refreshXSession]);
+  }, [projects, refreshProjects, refreshXSession, restoreVoteTarget, showVoteNotice]);
 
   useEffect(() => {
     const sync = () => {
@@ -250,35 +343,39 @@ export default function OperatingApp() {
       const project = projects.find((item) => item.slug === slug);
 
       if (!project) {
-        window.alert("This project is not available in the live database.");
+        showVoteNotice(slug, "This project is not available in the live database.");
         return;
       }
 
       if (!xSession.authenticated) {
-        window.alert("Sign in with X to vote. Eligible X accounts must be at least 7 days old.");
-        beginXLogin();
+        beginXLogin({
+          intent: "vote",
+          slug: project.slug,
+          hash: window.location.hash,
+        });
         return;
       }
 
       if (xSession.votingEligible === false) {
-        window.alert(
+        showVoteNotice(
+          project.slug,
           xSession.eligibilityReason === "account_too_new"
             ? "Your X account must be at least 7 days old to vote on SolPitch."
             : "Sign out and sign in with X again so SolPitch can verify your account age.",
         );
+        restoreVoteTarget(project.slug, window.location.hash);
         return;
       }
 
       setVoteBusy(true);
 
       try {
-        const result = await castXVote(project.slug);
+        await castXVote(project.slug);
         await refreshProjects();
-        window.alert(
-          `Vote counted. ${project.name} now has ${result.votes} X vote${result.votes === 1 ? "" : "s"} this week.`,
-        );
+        showVoteNotice(project.slug, "Vote counted.");
       } catch (error) {
-        window.alert(
+        showVoteNotice(
+          project.slug,
           error instanceof Error
             ? error.message
             : "The vote could not be completed.",
@@ -292,7 +389,7 @@ export default function OperatingApp() {
 
     return () =>
       document.removeEventListener("click", capture, true);
-  }, [beginXLogin, projects, refreshProjects, voteBusy, xSession]);
+  }, [beginXLogin, projects, refreshProjects, restoreVoteTarget, showVoteNotice, voteBusy, xSession]);
 
   if (adminRoute) {
     if (!adminAuthenticated) {
@@ -392,6 +489,30 @@ export default function OperatingApp() {
         onProjectsChanged={() => void refreshProjects()}
         onSubmitProject={() => void openSubmitProject()}
       />
+
+      {voteNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            left: "50%",
+            bottom: "22px",
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            maxWidth: "min(92vw, 560px)",
+            padding: "12px 16px",
+            borderRadius: "10px",
+            border: "1px solid #2a2a3a",
+            background: "#11131a",
+            color: "#f4f6fb",
+            boxShadow: "0 10px 30px rgba(0,0,0,.35)",
+            fontWeight: 700,
+          }}
+        >
+          {voteNotice.message}
+        </div>
+      )}
 
       <SpotlightPortal
         refreshKey={projects
