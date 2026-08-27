@@ -61,7 +61,7 @@ function SpotlightCard({ entry }: { entry: SpotlightEntry }) {
   );
 }
 
-function SpotlightBlock() {
+function SpotlightBlock({ refreshKey }: { refreshKey: string }) {
   const [entries, setEntries] = useState<SpotlightEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -86,7 +86,7 @@ function SpotlightBlock() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   return (
     <section className="spotlight-section" aria-label="SolPitch Spotlight">
@@ -112,7 +112,7 @@ function SpotlightBlock() {
   );
 }
 
-export default function SpotlightPortal() {
+export default function SpotlightPortal({ refreshKey }: { refreshKey: string }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -148,5 +148,5 @@ export default function SpotlightPortal() {
     };
   }, []);
 
-  return host ? createPortal(<SpotlightBlock />, host) : null;
+  return host ? createPortal(<SpotlightBlock refreshKey={refreshKey} />, host) : null;
 }
