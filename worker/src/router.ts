@@ -43,7 +43,7 @@ async function analyzeAddress(request: Request, env: Env, address: string) {
   return baseWorker.fetch(new Request(url.toString(), request), env);
 }
 
-const IPFS_CID = /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]{20,})$/i;
+const IPFS_CID = /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]{20,}|bafkre[a-z2-7]{20,})$/i;
 
 async function proxyIpfsImage(cid: string) {
   if (!IPFS_CID.test(cid)) {
