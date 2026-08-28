@@ -865,8 +865,7 @@ function MyListingsModal({
                               current
                                 ? {
                                     ...current,
-                                    website:
-                                      event.target.value,
+                                    website: event.target.value,
                                   }
                                 : current,
                             )
@@ -1708,7 +1707,7 @@ export default function ProductionHome({
             </div>
 
             {featuredProjects.length ? (
-              featuredProjects.map((project) => (
+              featuredProjects.slice(0, 3).map((project) => (
                 <FeaturedProject
                   key={project.slug}
                   project={project}
