@@ -865,7 +865,8 @@ function MyListingsModal({
                               current
                                 ? {
                                     ...current,
-                                    website: event.target.value,
+                                    website:
+                                      event.target.value,
                                   }
                                 : current,
                             )
