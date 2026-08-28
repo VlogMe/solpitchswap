@@ -1708,7 +1708,7 @@ export default function ProductionHome({
             </div>
 
             {featuredProjects.length ? (
-              featuredProjects.slice(0, 3).map((project) => (
+              featuredProjects.map((project) => (
                 <FeaturedProject
                   key={project.slug}
                   project={project}
