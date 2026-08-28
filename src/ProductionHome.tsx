@@ -1699,62 +1699,20 @@ export default function ProductionHome({
         <aside className="utility-rail">
           <section className="swap-widget embedded-swap" />
 
-          <section className="side-widget featured-projects-widget">
-            <div className="widget-title">
-              <div>
-                <h3>Featured Projects</h3>
-                <small>Promoted by SolPitch</small>
-              </div>
-            </div>
-
-            {featuredProjects.length ? (
-              featuredProjects.map((project) => (
-                <FeaturedProject
-                  key={project.slug}
-                  project={project}
-                  onOpen={() =>
-                    openProject(
-                      project,
-                      setSelected,
-                    )
-                  }
-                />
-              ))
-            ) : (
-              <div className="side-empty">
-                <strong>
-                  No featured projects yet
-                </strong>
-                <span>
-                  Promoted projects will appear here
-                  automatically.
-                </span>
-              </div>
-            )}
-          </section>
-
-          <section className="side-widget leaderboard-widget">
-            <div className="widget-title">
-              <div>
-                <h3>Most Voted Projects</h3>
-                <small>
-                  X-account weekly leaderboard
-                </small>
+          <div className="utility-scroll">
+            <section className="side-widget featured-projects-widget">
+              <div className="widget-title">
+                <div>
+                  <h3>Featured Projects</h3>
+                  <small>Promoted by SolPitch</small>
+                </div>
               </div>
 
-              <span className="competition-live">
-                LIVE
-              </span>
-            </div>
-
-            {ranked.length ? (
-              ranked
-                .slice(0, 15)
-                .map((project, index) => (
-                  <RankedProject
+              {featuredProjects.length ? (
+                featuredProjects.map((project) => (
+                  <FeaturedProject
                     key={project.slug}
                     project={project}
-                    rank={index + 1}
                     onOpen={() =>
                       openProject(
                         project,
@@ -1763,20 +1721,64 @@ export default function ProductionHome({
                     }
                   />
                 ))
-            ) : (
-              <div className="side-empty">
-                <strong>0 votes yet</strong>
-                <span>
-                  Published projects will compete here.
+              ) : (
+                <div className="side-empty">
+                  <strong>
+                    No featured projects yet
+                  </strong>
+                  <span>
+                    Promoted projects will appear here
+                    automatically.
+                  </span>
+                </div>
+              )}
+            </section>
+
+            <section className="side-widget leaderboard-widget">
+              <div className="widget-title">
+                <div>
+                  <h3>Most Voted Projects</h3>
+                  <small>
+                    X-account weekly leaderboard
+                  </small>
+                </div>
+
+                <span className="competition-live">
+                  LIVE
                 </span>
               </div>
-            )}
 
-            <p className="ranking-note">
-              One verified Phantom wallet can vote once
-              per project each week.
-            </p>
-          </section>
+              {ranked.length ? (
+                ranked
+                  .slice(0, 15)
+                  .map((project, index) => (
+                    <RankedProject
+                      key={project.slug}
+                      project={project}
+                      rank={index + 1}
+                      onOpen={() =>
+                        openProject(
+                          project,
+                          setSelected,
+                        )
+                      }
+                    />
+                  ))
+              ) : (
+                <div className="side-empty">
+                  <strong>0 votes yet</strong>
+                  <span>
+                    Published projects will compete here.
+                  </span>
+                </div>
+              )}
+
+              <p className="ranking-note">
+                One verified Phantom wallet can vote once
+                per project each week.
+              </p>
+            </section>
+          </div>
         </aside>
       </div>
 
