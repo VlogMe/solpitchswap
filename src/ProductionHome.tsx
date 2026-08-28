@@ -1699,40 +1699,6 @@ export default function ProductionHome({
         <aside className="utility-rail">
           <section className="swap-widget embedded-swap" />
 
-          <section className="side-widget featured-projects-widget">
-            <div className="widget-title">
-              <div>
-                <h3>Featured Projects</h3>
-                <small>Promoted by SolPitch</small>
-              </div>
-            </div>
-
-            {featuredProjects.length ? (
-              featuredProjects.map((project) => (
-                <FeaturedProject
-                  key={project.slug}
-                  project={project}
-                  onOpen={() =>
-                    openProject(
-                      project,
-                      setSelected,
-                    )
-                  }
-                />
-              ))
-            ) : (
-              <div className="side-empty">
-                <strong>
-                  No featured projects yet
-                </strong>
-                <span>
-                  Promoted projects will appear here
-                  automatically.
-                </span>
-              </div>
-            )}
-          </section>
-
           <section className="side-widget leaderboard-widget">
             <div className="widget-title">
               <div>
@@ -1776,6 +1742,40 @@ export default function ProductionHome({
               One verified Phantom wallet can vote once
               per project each week.
             </p>
+          </section>
+
+          <section className="side-widget featured-projects-widget">
+            <div className="widget-title">
+              <div>
+                <h3>Featured Projects</h3>
+                <small>Promoted by SolPitch</small>
+              </div>
+            </div>
+
+            {featuredProjects.length ? (
+              featuredProjects.map((project) => (
+                <FeaturedProject
+                  key={project.slug}
+                  project={project}
+                  onOpen={() =>
+                    openProject(
+                      project,
+                      setSelected,
+                    )
+                  }
+                />
+              ))
+            ) : (
+              <div className="side-empty">
+                <strong>
+                  No featured projects yet
+                </strong>
+                <span>
+                  Promoted projects will appear here
+                  automatically.
+                </span>
+              </div>
+            )}
           </section>
         </aside>
       </div>
